@@ -1,18 +1,18 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "tappaa",
 	"version": "${version}",
-	"name": "Example Mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "tappaa",
+	"description": "stab your friends politely",
 	"authors": [
-		"Me!"
+		"diamonddevv"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://diamonddevv.github.io/",
+		"sources": "https://github.com/diamonddevv/tappaa"
 	},
-	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
+	"license": "MIT",
+	"icon": "assets/tappaa/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
