@@ -23,13 +23,25 @@ public class DuelManager {
         } else {
             UUID targetUuid = target.getUUID();
             DuelRequest request = this.global_requests.get(requesteeUuid);
-            if (request.cancelled())
-            return targetUuid == request.getTargetUuid();
+            boolean cancelled = this.checkCancelled(request);
+
+            return !cancelled && targetUuid == request.getTargetUuid();
         }
     }
 
     public boolean playerHasActiveRequest(ServerPlayer requestee) {
-        return this.global_requests.containsKey(requestee.getUUID());
+        if (this.global_requests.containsKey(requestee.getUUID())) {
+            return !checkCancelled(this.global_requests.get(requestee.getUUID()));
+        }
+        return false;
+    }
+
+    public boolean checkCancelled(DuelRequest request) {
+        if (request.cancelled()) {
+            this.global_requests.remove(request.getRequesteeUuid());
+            return true;
+        }
+        return false;
     }
 
     public DuelRequest requestDuel(ServerPlayer requestee, ServerPlayer target) {
