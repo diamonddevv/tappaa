@@ -21,7 +21,7 @@ import static net.minecraft.commands.Commands.literal;
 
 public class DuelCommand {
 
-    public static final DynamicCommandExceptionType ERROR_DUEL_NOT_FOUND = new DynamicCommandExceptionType(player -> Component.literal("No duel against " + Tappaa.playerTextComponent(((ServerPlayer)player)) + " was found"));
+    public static final DynamicCommandExceptionType ERROR_DUEL_NOT_FOUND = new DynamicCommandExceptionType(player -> Component.literal("No duel against " + ((ServerPlayer)player).getPlainTextName() + " was found"));
     public static final SimpleCommandExceptionType ERROR_NO_DUEL_REQUEST = new SimpleCommandExceptionType(Component.literal("You have no outgoing duel request!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {

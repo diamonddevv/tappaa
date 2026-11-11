@@ -68,7 +68,7 @@ public class DuelRequest {
 
     public Component getSentRequestMessage() {
         return Component.empty()
-                .append(Component.literal("Sent request to " + targets.size() + " players.").withStyle(ChatFormatting.GREEN)
+                .append(Component.literal("Sent request to " + targets.size() + " player(s).").withStyle(ChatFormatting.GREEN)
                 );
     }
 
