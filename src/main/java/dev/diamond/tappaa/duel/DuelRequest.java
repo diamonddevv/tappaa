@@ -8,33 +8,68 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.UUID;
+import java.util.*;
 
 public class DuelRequest {
     private final ServerPlayer requestee;
-    private final ServerPlayer target;
+    private final Collection<ServerPlayer> targets;
+    private final HashMap<ServerPlayer, Boolean> accepted;
     private boolean cancelled;
 
-    public DuelRequest(ServerPlayer requestee, ServerPlayer target) {
+    public DuelRequest(ServerPlayer requestee, Collection<ServerPlayer> targets) {
         this.requestee = requestee;
-        this.target = target;
+        this.targets = targets;
         this.cancelled = false;
+        this.accepted = new HashMap<>();
+
+        for (ServerPlayer target : targets) {
+            this.accepted.put(target, false);
+        }
     }
 
     public UUID getRequesteeUuid() {
         return requestee.getUUID();
     }
 
-    public UUID getTargetUuid() {
-        return target.getUUID();
+    public List<UUID> getTargetUuids() {
+        return targets.stream().map(ServerPlayer::getUUID).toList();
+    }
+
+    public boolean targetsPlayer(ServerPlayer player) {
+        return this.targets.contains(player);
     }
 
     public boolean cancelled() {
         return this.cancelled;
     }
 
-    public void cancelRequest() {
+    public boolean playerHasAccepted(ServerPlayer player) {
+        return this.accepted.get(player);
+    }
+
+    public boolean allPlayersAccepted() {
+        return this.accepted.values().stream().allMatch(b -> b);
+    }
+
+    public List<ServerPlayer> acceptedPlayers() {
+        List<ServerPlayer> acceptedPlayers = new ArrayList<>();
+        for (ServerPlayer player : this.accepted.keySet()) {
+            if (this.accepted.get(player)) {
+                acceptedPlayers.add(player);
+            }
+        }
+        return acceptedPlayers;
+    }
+
+    public void markCancelled() {
         this.cancelled = true;
+    }
+
+
+    public Component getSentRequestMessage() {
+        return Component.empty()
+                .append(Component.literal("Sent request to " + targets.size() + " players.").withStyle(ChatFormatting.GREEN)
+                );
     }
 
     public Component getProposeMessage() {
@@ -50,6 +85,14 @@ public class DuelRequest {
                         .withStyle(ChatFormatting.BOLD)
                         .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(acceptCommand)))
                 );
+    }
+
+    public Component getAcceptedMessage(ServerPlayer player) {
+        return Component.empty()
+                .append(Tappaa.playerTextComponent(player, ChatFormatting.GOLD))
+                .append(Component.literal(" joined duel. ").withColor(TextColor.GREEN))
+                .append(Component.literal("[" + acceptedPlayers().size() + "/" + targets.size() + "]").withColor(TextColor.YELLOW))
+                ;
     }
 
     public Component getAcceptMessage() {

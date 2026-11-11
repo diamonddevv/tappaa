@@ -13,6 +13,8 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Collection;
+
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
@@ -27,8 +29,8 @@ public class DuelCommand {
         dispatcher.register(
                 literal("duel").then(
                         literal("challenge").then(
-                                argument("player", EntityArgument.player())
-                                        .executes(DuelCommand::challengePlayer)
+                                argument("players", EntityArgument.players())
+                                        .executes(DuelCommand::challengePlayers)
                         )
                 ).then(
                         literal("accept").then(
@@ -46,14 +48,19 @@ public class DuelCommand {
 
 
 
-    private static int challengePlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int challengePlayers(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer self = ctx.getSource().getPlayerOrException();
-        ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
+        Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
 
-        DuelRequest request = DuelManager.INSTANCE.requestDuel(self, player);
+        DuelRequest request = DuelManager.INSTANCE.requestDuel(self, players);
 
         Component message = request.getProposeMessage();
-        player.sendSystemMessage(message);
+        for (ServerPlayer player : players) {
+            player.sendSystemMessage(message);
+        }
+
+        message = request.getSentRequestMessage();
+        self.sendSystemMessage(message);
 
         return 1;
     }
@@ -66,6 +73,7 @@ public class DuelCommand {
             DuelRequest request = DuelManager.INSTANCE.getRequestedDuel(requestee);
             Component message = request.getAcceptMessage();
             self.sendSystemMessage(message);
+            DuelManager.INSTANCE.acceptDuelRequest(request);
             return 1;
         } else {
             throw ERROR_DUEL_NOT_FOUND.create(requestee);
@@ -78,7 +86,7 @@ public class DuelCommand {
             DuelRequest request = DuelManager.INSTANCE.getRequestedDuel(self);
             Component message = request.getCancelledMessage();
             self.sendSystemMessage(message);
-            request.cancelRequest();
+            request.markCancelled();
             return 1;
         } else {
             throw ERROR_NO_DUEL_REQUEST.create();
