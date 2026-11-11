@@ -8,13 +8,36 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.level.ServerPlayer;
 
-public class Duel {
+import java.util.UUID;
 
-    public Duel() {
+public class DuelRequest {
+    private final ServerPlayer requestee;
+    private final ServerPlayer target;
+    private boolean cancelled;
 
+    public DuelRequest(ServerPlayer requestee, ServerPlayer target) {
+        this.requestee = requestee;
+        this.target = target;
+        this.cancelled = false;
     }
 
-    public static Component getProposeDuelMessage(ServerPlayer requestee) {
+    public UUID getRequesteeUuid() {
+        return requestee.getUUID();
+    }
+
+    public UUID getTargetUuid() {
+        return target.getUUID();
+    }
+
+    public boolean cancelled() {
+        return this.cancelled;
+    }
+
+    public void cancelRequest() {
+        this.cancelled = true;
+    }
+
+    public Component getProposeMessage() {
 
         String acceptCommand = "duel accept " + requestee.getPlainTextName();
 
@@ -29,13 +52,17 @@ public class Duel {
                 );
     }
 
-    public static Component getAcceptedDuelMessage(ServerPlayer requestee) {
-
-
+    public Component getAcceptMessage() {
         return Component.empty()
                 .append(Component.literal("Accepted ").withColor(TextColor.GREEN))
                 .append(Tappaa.playerTextComponent(requestee, ChatFormatting.GOLD))
                 .append(Component.literal("'s duel.").withColor(TextColor.GREEN))
                 ;
     }
+
+    public Component getCancelledMessage() {
+        return Component.empty()
+                .append(Component.literal("Duel request cancelled.").withStyle(ChatFormatting.RED));
+    }
+
 }
