@@ -2,6 +2,7 @@ package dev.diamond.tappaa.duel;
 
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -23,35 +24,40 @@ public class DuelManager {
         } else {
             UUID targetUuid = target.getUUID();
             DuelRequest request = this.global_requests.get(requesteeUuid);
-            boolean cancelled = this.checkCancelled(request);
+            boolean valid = this.checkValid(request);
 
-            return !cancelled && targetUuid == request.getTargetUuid();
+            return valid && request.getTargetUuids().contains(targetUuid);
         }
     }
 
     public boolean playerHasActiveRequest(ServerPlayer requestee) {
         if (this.global_requests.containsKey(requestee.getUUID())) {
-            return !checkCancelled(this.global_requests.get(requestee.getUUID()));
+            return checkValid(this.global_requests.get(requestee.getUUID()));
         }
         return false;
     }
 
-    public boolean checkCancelled(DuelRequest request) {
-        if (request.cancelled()) {
+    public boolean checkValid(DuelRequest request) {
+        if (request.cancelled() || request.accepted()) {
             this.global_requests.remove(request.getRequesteeUuid());
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 
-    public DuelRequest requestDuel(ServerPlayer requestee, ServerPlayer target) {
-        DuelRequest request = new DuelRequest(requestee, target);
+    public DuelRequest requestDuel(ServerPlayer requestee, Collection<ServerPlayer> targets) {
+        DuelRequest request = new DuelRequest(requestee, targets);
         this.global_requests.put(request.getRequesteeUuid(), request);
         return request;
     }
 
     public DuelRequest getRequestedDuel(ServerPlayer requestee) {
         return this.global_requests.get(requestee.getUUID());
+    }
+
+
+    public void acceptDuelRequest(DuelRequest request) {
+        request.markAccepted();
     }
 
 }
