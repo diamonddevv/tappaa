@@ -38,7 +38,7 @@ public class DuelManager {
     }
 
     public boolean checkValid(DuelRequest request) {
-        if (request.cancelled() || request.accepted()) {
+        if (request.cancelled()) {
             this.global_requests.remove(request.getRequesteeUuid());
             return false;
         }
@@ -57,7 +57,7 @@ public class DuelManager {
 
 
     public void acceptDuelRequest(DuelRequest request) {
-        request.markAccepted();
+
     }
 
 }
