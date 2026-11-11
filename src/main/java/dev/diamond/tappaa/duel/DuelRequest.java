@@ -27,12 +27,20 @@ public class DuelRequest {
         }
     }
 
+    public ServerPlayer getRequestee() {
+        return requestee;
+    }
+
     public UUID getRequesteeUuid() {
         return requestee.getUUID();
     }
 
     public List<UUID> getTargetUuids() {
         return targets.stream().map(ServerPlayer::getUUID).toList();
+    }
+
+    public boolean isRequestee(ServerPlayer player) {
+        return player == requestee;
     }
 
     public boolean targetsPlayer(ServerPlayer player) {
@@ -61,10 +69,19 @@ public class DuelRequest {
         return acceptedPlayers;
     }
 
+    public List<ServerPlayer> involvedPlayers() {
+        List<ServerPlayer> players = acceptedPlayers();
+        players.add(requestee);
+        return players;
+    }
+
     public void markCancelled() {
         this.cancelled = true;
     }
 
+    public void markAccepted(ServerPlayer player) {
+        accepted.put(player, true);
+    }
 
     public Component getSentRequestMessage() {
         return Component.empty()
@@ -75,6 +92,7 @@ public class DuelRequest {
     public Component getProposeMessage() {
 
         String acceptCommand = "duel accept " + requestee.getPlainTextName();
+        String declineCommand = "duel decline " + requestee.getPlainTextName();
 
         return Component.empty()
                 .append(Tappaa.playerTextComponent(requestee, ChatFormatting.GOLD))
@@ -83,15 +101,21 @@ public class DuelRequest {
                         .withColor(TextColor.LIGHT_PURPLE)
                         .withStyle(ChatFormatting.UNDERLINE)
                         .withStyle(ChatFormatting.BOLD)
-                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(acceptCommand)))
-                );
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(acceptCommand))))
+                .append(" ")
+                .append(Component.literal("[DECLINE]")
+                        .withColor(TextColor.DARK_RED)
+                        .withStyle(ChatFormatting.UNDERLINE)
+                        .withStyle(ChatFormatting.BOLD)
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(declineCommand))))
+                ;
     }
 
     public Component getAcceptedMessage(ServerPlayer player) {
         return Component.empty()
                 .append(Tappaa.playerTextComponent(player, ChatFormatting.GOLD))
                 .append(Component.literal(" joined duel. ").withColor(TextColor.GREEN))
-                .append(Component.literal("[" + acceptedPlayers().size() + "/" + targets.size() + "]").withColor(TextColor.YELLOW))
+                .append(Component.literal("[" + (acceptedPlayers().size() + 1) + "/" + targets.size() + "]").withColor(TextColor.YELLOW))
                 ;
     }
 
@@ -103,9 +127,31 @@ public class DuelRequest {
                 ;
     }
 
+    public Component getDeclineMessage() {
+        return Component.empty()
+                .append(Component.literal("Declined ").withColor(TextColor.GREEN))
+                .append(Tappaa.playerTextComponent(requestee, ChatFormatting.GOLD))
+                .append(Component.literal("'s duel.").withColor(TextColor.GREEN))
+                ;
+    }
+
     public Component getCancelledMessage() {
         return Component.empty()
                 .append(Component.literal("Duel request cancelled.").withStyle(ChatFormatting.RED));
     }
+
+    public Component getHostCancelledMessage(DuelRequest request) {
+        return Component.empty()
+                .append(Tappaa.playerTextComponent(request.requestee))
+                .append(Component.literal(" cancelled the duel.").withStyle(ChatFormatting.RED));
+    }
+
+    public Component getPlayerDeclinedMessage(ServerPlayer player) {
+        return Component.empty()
+                .append(Tappaa.playerTextComponent(player))
+                .append(Component.literal(" declined the duel.").withStyle(ChatFormatting.RED));
+    }
+
+
 
 }
