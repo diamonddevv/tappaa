@@ -1,13 +1,13 @@
 package dev.diamond.tappaa;
 
-import dev.diamond.tappaa.duel.DuelCommand;
+import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.objects.PlayerSprite;
 import net.minecraft.resources.Identifier;
 
@@ -24,7 +24,9 @@ public class Tappaa implements ModInitializer {
 	@Override
 	public void onInitialize() {
 
-		CommandRegistrationCallback.EVENT.register(DuelCommand::register);
+		CommandRegistrationCallback.EVENT.register(TappaaCommand::register);
+		ServerPlayerEvents.JOIN.register(GroupManager::onPlayerJoinServer);
+		ServerPlayerEvents.LEAVE.register(GroupManager::onPlayerLeaveServer);
 
 	}
 

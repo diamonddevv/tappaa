@@ -1,4 +1,4 @@
-package dev.diamond.tappaa.duel;
+package dev.diamond.tappaa;
 
 import net.minecraft.server.level.ServerPlayer;
 
