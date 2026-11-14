@@ -5,8 +5,11 @@ import dev.diamond.tappaa.TappaaUtil;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Player;
@@ -16,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.FireworkExplosion;
 import net.minecraft.world.item.component.Fireworks;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -27,6 +31,7 @@ public class Duel {
             Tappaa.id("duel_id"),
             builder -> builder
                     .persistent(UUIDUtil.CODEC)
+                    .copyOnDeath()
     );
 
     private final UUID uuid;
@@ -44,6 +49,10 @@ public class Duel {
 
     public UUID getUuid() {
         return uuid;
+    }
+
+    public Collection<ServerPlayer> getPlayers() {
+        return this.players.keySet();
     }
 
     public boolean involvesPlayer(ServerPlayer player) {
@@ -81,6 +90,10 @@ public class Duel {
         consumer.accept(players.get(player));
     }
 
+    public void forEachMemberOfDuel(Consumer<ServerPlayer> consumer) {
+        players.keySet().forEach(consumer);
+    }
+
     public void checkDuelStatus() {
         long playersAlive = countPlayerStates(PlayerDuelState::isAlive);
         if (playersAlive == 1) {
@@ -90,11 +103,31 @@ public class Duel {
 
     public void endDuel() {
         this.players.keySet().forEach(this::clearDuelAttachment);
+        this.players.keySet().forEach(player -> {
+            player.sendSystemMessage(
+                    Component.empty()
+                            .append("Duel ended.").withStyle(ChatFormatting.YELLOW)
+            );
+        });
         DuelManager.INSTANCE.removeDuel(this);
     }
 
-    public void onPlayerDied(ServerPlayer player) {
+    public void onPlayerDied(ServerPlayer player, @Nullable ServerPlayer killer) {
         TappaaUtil.playSoundToPlayer(player, SoundEvents.WARDEN_ATTACK_IMPACT, 1, 0.8f);
+
+        MutableComponent deathMessage = Component.empty().append(TappaaUtil.playerTextComponent(player, ChatFormatting.GOLD));
+        if (killer == null) {
+            deathMessage.append(Component.literal(" died").withStyle(ChatFormatting.YELLOW));
+        } else {
+            deathMessage.append(Component.literal(" was killed by").withStyle(ChatFormatting.YELLOW)).append(TappaaUtil.playerTextComponent(killer, ChatFormatting.GOLD));
+        }
+
+        forEachMemberOfDuel(member -> {
+            if (member != player) {
+                TappaaUtil.playSoundToPlayer(member, SoundEvents.NOTE_BLOCK_COW_BELL.value(), 1, 0.1f);
+            }
+            member.sendSystemMessage(deathMessage);
+        });
         withState(player, PlayerDuelState::reduceLives);
         checkDuelStatus();
     }

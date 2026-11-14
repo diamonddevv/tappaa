@@ -2,6 +2,7 @@ package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.duel.DuelManager;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.ChatFormatting;
@@ -23,9 +24,11 @@ public class Group {
             Tappaa.id("group_id"),
             builder -> builder
                     .persistent(UUIDUtil.CODEC)
+                    .copyOnDeath()
     );
 
     private final UUID uuid;
+    private UUID duelUuid;
     private ServerPlayer owner;
     private final Collection<ServerPlayer> players;
     private final Collection<ServerPlayer> invites;
@@ -35,6 +38,7 @@ public class Group {
         this.owner = owner;
         this.players = new ArrayList<>();
         this.invites = new ArrayList<>();
+        this.duelUuid = null;
 
         addToGroup(owner);
     }
@@ -49,6 +53,14 @@ public class Group {
 
     public Collection<ServerPlayer> getMembers() {
         return players;
+    }
+
+    public void setDuelUuid(UUID uuid) {
+        this.duelUuid = uuid;
+    }
+
+    public boolean hasValidActiveDuel() {
+        return duelUuid != null && DuelManager.INSTANCE.findDuel(duelUuid).isPresent();
     }
 
     public void addToGroup(ServerPlayer player) {

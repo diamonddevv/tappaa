@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
@@ -18,10 +19,8 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -36,6 +35,7 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
     private static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is not in a group!"));
+    private static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is not in a duel!"));
     private static final SimpleCommandExceptionType ERROR_NOT_GROUP_OWNER = new SimpleCommandExceptionType(Component.literal("You are not the owner of this group!"));
     private static final SimpleCommandExceptionType ERROR_GROUP_OWNER_CANT_LEAVE = new SimpleCommandExceptionType(Component.literal("You can't leave your own group!"));
     private static final SimpleCommandExceptionType ERROR_GROUP_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That group does not exist!"));
@@ -44,6 +44,8 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_PLAYER_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("This player is already in your group!"));
     private static final SimpleCommandExceptionType ERROR_CANT_KICK_NON_MEMBER = new SimpleCommandExceptionType(Component.literal("You can't kick someone who isn't in your party!"));
     private static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
+    private static final SimpleCommandExceptionType ERROR_ALREADY_IN_DUEL = new SimpleCommandExceptionType(Component.literal("Your group is already in a duel!"));
+    private static final SimpleCommandExceptionType ERROR_BUSY_DUELING = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -89,6 +91,10 @@ public class TappaaCommand {
                                                 literal("duel").executes(TappaaCommand::devGetDuelUuid)
                                         )
                                 )
+                        ).then(
+                                literal("forceinvite").then(
+                                        argument("players", EntityArgument.players()).executes(TappaaCommand::devForceInvite)
+                                )
                         )
                 )
         );
@@ -96,30 +102,8 @@ public class TappaaCommand {
 
     }
 
-    //
 
-    private static boolean inGroup(CommandSourceStack src) {
-        if (!src.isPlayer()) {
-            return false;
-        }
-        ServerPlayer player = src.getPlayer();
-        assert player != null;
-        return GroupManager.INSTANCE.getGroup(player).isPresent();
-    }
 
-    private static boolean ownsGroup(CommandSourceStack src) {
-        if (!src.isPlayer()) {
-            return false;
-        }
-
-        ServerPlayer player = src.getPlayer();
-        assert player != null;
-
-        Optional<Group> group = GroupManager.INSTANCE.getGroup(player);
-        return group.filter(value -> value.getOwner() == player).isPresent();
-    }
-
-    //
 
     public static void playYaySound(ServerPlayer target) {
         TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BANJO.value(), 1f, 1.2f);
@@ -127,6 +111,10 @@ public class TappaaCommand {
 
     public static void playBadSound(ServerPlayer target) {
         TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BASS.value(), 1f, 1.0f);
+    }
+
+    public static void playDuelSound(ServerPlayer target) {
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_IRON_XYLOPHONE.value(), 1, 1.8f);
     }
 
     //
@@ -142,7 +130,7 @@ public class TappaaCommand {
         GroupManager.INSTANCE.createGroup(src);
 
         playYaySound(src);
-        src.sendSystemMessage(Component.literal("Succesfully created group.").withStyle(ChatFormatting.GREEN));
+        src.sendSystemMessage(Component.literal("Successfully created group.").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
@@ -188,6 +176,11 @@ public class TappaaCommand {
         if (group.get().hasMember(target)) {
             playBadSound(src);
             throw ERROR_PLAYER_ALREADY_IN_GROUP.create();
+        }
+
+        if (DuelManager.INSTANCE.getDuel(target).isPresent()) {
+            playBadSound(src);
+            throw ERROR_BUSY_DUELING.create();
         }
 
         group.get().invite(target);
@@ -351,10 +344,19 @@ public class TappaaCommand {
             throw ERROR_NOT_GROUP_OWNER.create();
         }
 
-        DuelManager.INSTANCE.createDuelFromGroup(group.get());
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_DUEL.create();
+        }
 
-        src.sendSystemMessage(Component.literal("Dueling group!").withStyle(ChatFormatting.GREEN));
-        playYaySound(src);
+        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get());
+
+        if (duel.isPresent()) { // this should always be true, really
+            for (ServerPlayer member : duel.get().getPlayers()) {
+                member.sendSystemMessage(Component.literal("Started duel!").withStyle(ChatFormatting.GREEN));
+                playDuelSound(member);
+            }
+        }
 
         return 1;
     }
@@ -414,6 +416,51 @@ public class TappaaCommand {
         return 1;
     }
 
+    private static int devForceInvite(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
+
+        for (ServerPlayer player : players) {
+            if (player == src) {
+                continue;
+            }
+
+            if (group.get().getOwner() == player) {
+                GroupManager.INSTANCE.disbandGroup(group.get(), false);
+            } else {
+                group.get().removeFromGroup(player);
+
+                player.sendSystemMessage(Group.getKickedMessage(group.get()));
+                TappaaCommand.playBadSound(player);
+
+                group.get().broadcastMessage(Group.getKickedBroadcastMessage(player), true);
+                group.get().forEachMember(TappaaCommand::playBadSound, true);
+            }
+        }
+
+        players.forEach(player -> {
+            group.get().addToGroup(player);
+            TappaaCommand.playYaySound(player);
+            player.sendSystemMessage(Component.empty()
+                    .append(Component.literal("You have been forcefully added to ").withStyle(ChatFormatting.GREEN))
+                    .append(TappaaUtil.playerTextComponent(src, ChatFormatting.GOLD))
+                    .append(Component.literal("'s group.").withStyle(ChatFormatting.GREEN))
+
+            );
+        });
+
+        playYaySound(src);
+        src.sendSystemMessage(Component.literal("Succesfully force-invited player(s).").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
     private static int devGetGroupUuid(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
@@ -445,28 +492,24 @@ public class TappaaCommand {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
 
-        return 0;
 
-//        Optional<Group> group = GroupManager.INSTANCE.getGroup(target);
-//        if (group.isEmpty()) {
-//            playBadSound(target);
-//            throw ERROR_NOT_IN_GROUP.create();
-//        }
-//
-//        src.sendSystemMessage(Component.empty()
-//                .append(Tappaa.playerTextComponent(target, ChatFormatting.GOLD))
-//                .append(Component.literal(" is a part of ").withStyle(ChatFormatting.WHITE))
-//                .append(Tappaa.playerTextComponent(group.get().getOwner(), ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
-//                .append(Component.literal("'s group").withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
-//                .append(Component.literal(" with UUID ").withStyle(ChatFormatting.WHITE))
-//                .append(Component.literal("[").withStyle(ChatFormatting.GREEN))
-//                .append(Component.literal(group.get().getGroupUuid().toString())
-//                        .withStyle(ChatFormatting.AQUA)
-//                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard(group.get().getGroupUuid().toString())))
-//                )
-//                .append(Component.literal("]").withStyle(ChatFormatting.GREEN))
-//        );
-//        return 1;
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(target);
+        if (duel.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_OTHER_NOT_IN_DUEL.create();
+        }
+
+        src.sendSystemMessage(Component.empty()
+                .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
+                .append(Component.literal(" is a part of a duel with UUID: ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal("[").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(duel.get().getUuid().toString())
+                        .withStyle(ChatFormatting.AQUA)
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard(duel.get().getUuid().toString())))
+                )
+                .append(Component.literal("]").withStyle(ChatFormatting.GREEN))
+        );
+        return 1;
     }
 
 }

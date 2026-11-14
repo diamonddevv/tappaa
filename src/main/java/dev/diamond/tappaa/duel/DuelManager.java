@@ -8,6 +8,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.GameType;
+import org.apache.logging.log4j.core.jmx.Server;
 
 import java.util.HashMap;
 import java.util.Optional;
@@ -23,10 +24,15 @@ public class DuelManager {
     public static final DuelManager INSTANCE = new DuelManager();
 
 
-    public void createDuelFromGroup(Group group) {
-        UUID uuid = UUID.randomUUID();
-        Duel duel = new Duel(uuid, group.getMembers());
-        duels.put(uuid, duel);
+    public Optional<Duel> createDuelFromGroup(Group group) {
+        if (!group.hasValidActiveDuel()) {
+            UUID uuid = UUID.randomUUID();
+            Duel duel = new Duel(uuid, group.getMembers());
+            group.setDuelUuid(uuid);
+            duels.put(uuid, duel);
+            return Optional.of(duel);
+        }
+        return Optional.empty();
     }
 
     public Optional<Duel> findDuel(UUID uuid) {
@@ -62,8 +68,10 @@ public class DuelManager {
             if (duel.isPresent()) {
 
                 Entity killerEntity = damageSource.getDirectEntity();
+                ServerPlayer killer = null;
                 if (killerEntity instanceof ServerPlayer killerPlayer && duel.get().involvesPlayer(killerPlayer)) {
                     // do something with the player that killed them
+                    killer = killerPlayer;
                     duel.get().onKilledPlayer(killerPlayer);
                 }
 
@@ -72,7 +80,7 @@ public class DuelManager {
                 player.setGameMode(GameType.SPECTATOR);
                 player.setHealth(20.0f);
 
-                duel.get().onPlayerDied(player);
+                duel.get().onPlayerDied(player, killer);
 
                 return false;
             }

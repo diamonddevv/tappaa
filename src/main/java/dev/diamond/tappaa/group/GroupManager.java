@@ -48,10 +48,10 @@ public class GroupManager {
     }
 
     public void disbandGroup(Group group, boolean silent) {
-        Component message = Component.literal("Your group has been disbanded.").withStyle(ChatFormatting.DARK_RED);
+        Component message = Component.literal("Your group has been disbanded.").withStyle(ChatFormatting.YELLOW);
         for (ServerPlayer player : group.getMembers()) {
             if (!silent) {
-                TappaaCommand.playBadSound(player);
+                TappaaCommand.playYaySound(player);
                 player.sendSystemMessage(message);
             }
         }
