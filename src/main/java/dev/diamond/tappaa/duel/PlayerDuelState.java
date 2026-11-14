@@ -1,29 +1,89 @@
 package dev.diamond.tappaa.duel;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 
 public class PlayerDuelState {
     private final ServerPlayer player;
 
+    private final GameType preDuelGamemode;
+
     private int kills;
+    private int deaths;
+    private int totemPops;
+
+    private int respawnTimer;
+    private boolean awaitingRespawn;
     private int lives;
 
     public PlayerDuelState(ServerPlayer player, int initialLives) {
         this.player = player;
+
+        this.preDuelGamemode = player.gameMode();
+
         this.kills = 0;
+        this.deaths = 0;
+        this.totemPops = 0;
+
+        this.respawnTimer = 0;
+        this.awaitingRespawn = false;
         this.lives = initialLives;
     }
 
+    public void incrementKills() {
+        this.kills++;
+    }
+
+    public void incrementTotemPops() {
+        this.totemPops++;
+    }
+
+    public int getKills() {
+        return this.kills;
+    }
+
+    public int getDeaths() {
+        return this.deaths;
+    }
+
+    public int getTotemPops() {
+        return this.totemPops;
+    }
 
     public void reduceLives() {
         this.lives -= 1;
+        this.deaths += 1;
     }
 
-    public boolean isEliminated() {
-        return this.lives <= 0;
-    }
-
-    public boolean isAlive() {
+    public boolean hasRemainingLives() {
         return this.lives > 0;
+    }
+
+    public int remainingLives() {
+        return this.lives;
+    }
+
+    public void setRespawnTimer(int ticks) {
+        this.respawnTimer = ticks;
+    }
+
+    public int remainingRespawnTicks() {
+        return this.respawnTimer;
+    }
+
+    public void decrementRespawnTimer() {
+        this.respawnTimer--;
+    }
+
+    public boolean isAwaitingRespawn() {
+        return awaitingRespawn;
+    }
+
+    public void setAwaitingRespawn(boolean state) {
+        awaitingRespawn = state;
+    }
+
+    public GameType getPreDuelGamemode() {
+        return preDuelGamemode;
     }
 }

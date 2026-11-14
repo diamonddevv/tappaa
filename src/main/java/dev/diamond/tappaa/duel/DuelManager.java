@@ -58,14 +58,16 @@ public class DuelManager {
 
 
     private static boolean allowEntityDeath(LivingEntity livingEntity, DamageSource damageSource, float damageAmount) {
-        if (livingEntity.isHolding(item -> item.has(DataComponents.DEATH_PROTECTION))) {
-            return true;
-        }
 
         if (livingEntity instanceof ServerPlayer player) {
             Optional<Duel> duel = DuelManager.INSTANCE.getDuel(player);
 
             if (duel.isPresent()) {
+
+                if (player.isHolding(item -> item.has(DataComponents.DEATH_PROTECTION))) {
+                    duel.get().getDuelState(player).incrementTotemPops();
+                    return true;
+                }
 
                 Entity killerEntity = damageSource.getDirectEntity();
                 ServerPlayer killer = null;
@@ -74,11 +76,6 @@ public class DuelManager {
                     killer = killerPlayer;
                     duel.get().onKilledPlayer(killerPlayer);
                 }
-
-                Duel.spawnKillFirework(player);
-
-                player.setGameMode(GameType.SPECTATOR);
-                player.setHealth(20.0f);
 
                 duel.get().onPlayerDied(player, killer);
 

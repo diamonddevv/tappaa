@@ -7,6 +7,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.objects.PlayerSprite;
+import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -25,12 +26,29 @@ public class TappaaUtil {
         ));
     }
 
-    public static MutableComponent playerTextComponent(ServerPlayer player, ChatFormatting... formats) {
+    public static void setPlayerActionbarText(ServerPlayer target, Component component) {
+        target.connection.send(new ClientboundSetActionBarTextPacket(component));
+    }
+
+    public static MutableComponent playerTextComponent(ServerPlayer player, int ljustName, ChatFormatting... formats) {
         ResolvableProfile profile = player.getProfile();
         return (Component.empty()
                 .append(Component.object(new PlayerSprite(profile, true)))
                 .append(Component.literal(" "))
-                .append(Component.literal(profile.partialProfile().name()).withStyle(formats))
+                .append(Component.literal(ljust(profile.partialProfile().name(), ljustName)).withStyle(formats))
         ).withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowEntity(new HoverEvent.EntityTooltipInfo(EntityTypes.PLAYER, player.getUUID(), player.getName()))));
+    }
+
+    public static MutableComponent playerTextComponent(ServerPlayer player, ChatFormatting... formats) {
+        return playerTextComponent(player, -1, formats);
+    }
+
+    public static String ljust(String string, int size) {
+        StringBuilder s = new StringBuilder();
+        s.append(string);
+        while (s.length() < size){
+            s.append(" ");
+        }
+        return s.toString();
     }
 }

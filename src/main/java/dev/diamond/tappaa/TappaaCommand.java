@@ -34,6 +34,7 @@ public class TappaaCommand {
 
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
+    private static final SimpleCommandExceptionType ERROR_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You are not in a duel!"));
     private static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is not in a group!"));
     private static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is not in a duel!"));
     private static final SimpleCommandExceptionType ERROR_NOT_GROUP_OWNER = new SimpleCommandExceptionType(Component.literal("You are not the owner of this group!"));
@@ -95,6 +96,10 @@ public class TappaaCommand {
                                 literal("forceinvite").then(
                                         argument("players", EntityArgument.players()).executes(TappaaCommand::devForceInvite)
                                 )
+                        )
+                ).then(
+                        literal("duel").then(
+                                literal("end").executes(TappaaCommand::endDuel)
                         )
                 )
         );
@@ -357,6 +362,33 @@ public class TappaaCommand {
                 playDuelSound(member);
             }
         }
+
+        return 1;
+    }
+
+    private static int endDuel(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (!group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_DUEL.create();
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+
+        // this should always be true, really
+        duel.ifPresent(Duel::endDuel);
 
         return 1;
     }
