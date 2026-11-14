@@ -1,5 +1,6 @@
 package dev.diamond.tappaa;
 
+import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.api.ModInitializer;
 
@@ -25,9 +26,12 @@ public class Tappaa implements ModInitializer {
 	public void onInitialize() {
 
 		CommandRegistrationCallback.EVENT.register(TappaaCommand::register);
+
+
 		ServerPlayerEvents.JOIN.register(GroupManager::onPlayerJoinServer);
 		ServerPlayerEvents.LEAVE.register(GroupManager::onPlayerLeaveServer);
 
+		DuelManager.registerDuelingEvents();
 	}
 
 	public static Identifier id(String path) {

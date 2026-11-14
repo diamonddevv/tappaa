@@ -2,7 +2,6 @@ package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.Tappaa;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.UUIDUtil;
@@ -15,13 +14,14 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class Group {
 
     public static final AttachmentType<UUID> GROUP_ID_ATTACHMENT = AttachmentRegistry.create(
             Tappaa.id("group_id"),
             builder -> builder
-                    .syncWith(UUIDUtil.STREAM_CODEC, AttachmentSyncPredicate.all())
+                    .persistent(UUIDUtil.CODEC)
     );
 
     private final UUID uuid;
@@ -74,10 +74,22 @@ public class Group {
         players.clear();
     }
 
+    public boolean hasMember(ServerPlayer player) {
+        return players.contains(player);
+    }
+
     public void broadcastMessage(Component message, boolean includeOwner) {
         for (ServerPlayer member : getMembers()) {
             if (includeOwner || member != owner) {
                 member.sendSystemMessage(message);
+            }
+        }
+    }
+
+    public void forEachMember(Consumer<ServerPlayer> action, boolean includeOwner) {
+        for (ServerPlayer member : getMembers()) {
+            if (includeOwner || member != owner) {
+                action.accept(member);
             }
         }
     }
@@ -164,10 +176,25 @@ public class Group {
                 ;
     }
 
-
     public static Component getRejectedMessage(ServerPlayer target) {
         return Component.empty()
                 .append(Tappaa.playerTextComponent(target))
-                .append(Component.literal(" declined to join the group.").withStyle(ChatFormatting.RED));
+                .append(Component.literal(" declined to join the group.").withStyle(ChatFormatting.RED))
+                ;
+    }
+
+    public static Component getKickedMessage(Group group) {
+        return Component.empty()
+                .append(Component.literal("You have been kicked from ").withStyle(ChatFormatting.DARK_RED))
+                .append(Tappaa.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
+                .append(Component.literal("'s party.").withStyle(ChatFormatting.DARK_RED))
+                ;
+    }
+
+    public static Component getKickedBroadcastMessage(ServerPlayer target) {
+        return Component.empty()
+                .append(Tappaa.playerTextComponent(target, ChatFormatting.GOLD))
+                .append(Component.literal(" was kicked from the party.").withStyle(ChatFormatting.DARK_RED))
+                ;
     }
 }

@@ -9,7 +9,7 @@ import java.util.*;
 
 public class GroupManager {
 
-    public final HashMap<UUID, Group> groups;
+    private final HashMap<UUID, Group> groups;
     protected GroupManager() {
         this.groups = new HashMap<>();
     }

@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
 import net.minecraft.ChatFormatting;
@@ -33,6 +34,10 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_GROUP_OWNER_CANT_LEAVE = new SimpleCommandExceptionType(Component.literal("You can't leave your own group!"));
     private static final SimpleCommandExceptionType ERROR_GROUP_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That group does not exist!"));
     private static final SimpleCommandExceptionType ERROR_NOT_INVITED = new SimpleCommandExceptionType(Component.literal("You aren't invited to this group!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_INVITE_SELF = new SimpleCommandExceptionType(Component.literal("You can't invite yourself to a group!"));
+    private static final SimpleCommandExceptionType ERROR_PLAYER_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("This player is already in your group!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_KICK_NON_MEMBER = new SimpleCommandExceptionType(Component.literal("You can't kick someone who isn't in your party!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -58,6 +63,12 @@ public class TappaaCommand {
                                 literal("decline").then(
                                         argument("uuid", UuidArgument.uuid()).executes(TappaaCommand::declineInvite)
                                 )
+                        ).then(
+                                literal("kick").then(
+                                        argument("player", EntityArgument.player()).executes(TappaaCommand::kickMemberFromGroup)
+                                )
+                        ).then(
+                                literal("duel").executes(TappaaCommand::duelGroup)
                         )
                 )
         );
@@ -132,10 +143,12 @@ public class TappaaCommand {
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_NOT_IN_GROUP.create();
         }
 
         if (group.get().getOwner() != src) {
+            playBadSound(src);
             throw ERROR_NOT_GROUP_OWNER.create();
         }
 
@@ -148,18 +161,32 @@ public class TappaaCommand {
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_NOT_IN_GROUP.create();
         }
 
         if (group.get().getOwner() != src) {
+            playBadSound(src);
             throw ERROR_NOT_GROUP_OWNER.create();
         }
 
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        if (src == target) {
+            playBadSound(src);
+            throw ERROR_CANT_INVITE_SELF.create();
+        }
+
+        if (group.get().hasMember(target)) {
+            playBadSound(src);
+            throw ERROR_PLAYER_ALREADY_IN_GROUP.create();
+        }
+
         group.get().invite(target);
         target.sendSystemMessage(Group.getIncomingInviteMessage(group.get()));
 
         src.sendSystemMessage(Group.getSentInviteMessageOwner(target));
+        playYaySound(src);
         group.get().broadcastMessage(Group.getSentInviteMessageGroup(group.get(), target), false);
 
         return 1;
@@ -170,10 +197,12 @@ public class TappaaCommand {
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_NOT_IN_GROUP.create();
         }
 
         if (group.get().getOwner() == src) {
+            playBadSound(src);
             throw ERROR_GROUP_OWNER_CANT_LEAVE.create();
         }
 
@@ -189,6 +218,7 @@ public class TappaaCommand {
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_NOT_IN_GROUP.create();
         }
 
@@ -206,6 +236,7 @@ public class TappaaCommand {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
         if (GroupManager.INSTANCE.getGroup(src).isPresent()) {
+            playBadSound(src);
             throw ERROR_ALREADY_IN_GROUP.create();
         }
 
@@ -213,11 +244,21 @@ public class TappaaCommand {
         Optional<Group> group = GroupManager.INSTANCE.findGroup(uuid);
 
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_GROUP_DOESNT_EXIST.create();
         }
 
+        if (!group.get().isPlayerInvited(src)) {
+            playBadSound(src);
+            throw ERROR_NOT_INVITED.create();
+        }
+
         src.sendSystemMessage(Group.getAcceptMessage(group.get()));
+        playYaySound(src);
+
         group.get().broadcastMessage(Group.getJoinedMessage(src), true);
+        group.get().forEachMember(TappaaCommand::playYaySound, true);
+
         group.get().addToGroup(src);
         group.get().rescindInvite(src);
 
@@ -231,15 +272,82 @@ public class TappaaCommand {
         Optional<Group> group = GroupManager.INSTANCE.findGroup(uuid);
 
         if (group.isEmpty()) {
+            playBadSound(src);
             throw ERROR_GROUP_DOESNT_EXIST.create();
         }
 
+        if (!group.get().isPlayerInvited(src)) {
+            playBadSound(src);
+            throw ERROR_NOT_INVITED.create();
+        }
+
         src.sendSystemMessage(Group.getDeclinedMessage(group.get()));
+        playBadSound(src);
+
         group.get().broadcastMessage(Group.getRejectedMessage(src), true);
+        group.get().forEachMember(TappaaCommand::playBadSound, true);
+
         group.get().rescindInvite(src);
 
         return 1;
     }
 
+    private static int kickMemberFromGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
 
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        if (!group.get().hasMember(target)) {
+            playBadSound(src);
+            throw ERROR_CANT_KICK_NON_MEMBER.create();
+        }
+
+        if (src == target) {
+            playBadSound(src);
+            throw ERROR_CANT_KICK_SELF.create();
+        }
+
+        group.get().removeFromGroup(target);
+
+        src.sendSystemMessage(Group.getKickedMessage(group.get()));
+        playBadSound(src);
+
+        group.get().broadcastMessage(Group.getKickedBroadcastMessage(target), true);
+        group.get().forEachMember(TappaaCommand::playBadSound, true);
+
+        return 1;
+    }
+
+    private static int duelGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        DuelManager.INSTANCE.createDuelFromGroup(group.get());
+
+        src.sendSystemMessage(Component.literal("Dueling group!").withStyle(ChatFormatting.GREEN));
+        playYaySound(src);
+
+        return 1;
+    }
 }
