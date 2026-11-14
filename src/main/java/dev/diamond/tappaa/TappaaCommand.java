@@ -7,18 +7,23 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
+import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.UuidArgument;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,6 +35,7 @@ public class TappaaCommand {
 
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
+    private static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is not in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_GROUP_OWNER = new SimpleCommandExceptionType(Component.literal("You are not the owner of this group!"));
     private static final SimpleCommandExceptionType ERROR_GROUP_OWNER_CANT_LEAVE = new SimpleCommandExceptionType(Component.literal("You can't leave your own group!"));
     private static final SimpleCommandExceptionType ERROR_GROUP_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That group does not exist!"));
@@ -70,6 +76,20 @@ public class TappaaCommand {
                         ).then(
                                 literal("duel").executes(TappaaCommand::duelGroup)
                         )
+                ).then(
+                        literal("dev").requires(src -> FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment()).then(
+                                literal("forcegroup").then(
+                                        argument("players", EntityArgument.players()).executes(TappaaCommand::devForceCreateGroup)
+                                )
+                        ).then(
+                                literal("uuid").then(
+                                        argument("player", EntityArgument.player()).then(
+                                                literal("group").executes(TappaaCommand::devGetGroupUuid)
+                                        ).then(
+                                                literal("duel").executes(TappaaCommand::devGetDuelUuid)
+                                        )
+                                )
+                        )
                 )
         );
 
@@ -102,23 +122,11 @@ public class TappaaCommand {
     //
 
     public static void playYaySound(ServerPlayer target) {
-        target.connection.send(new ClientboundSoundPacket(
-                SoundEvents.NOTE_BLOCK_BANJO,
-                SoundSource.MASTER,
-                target.getX(), target.getY(), target.getZ(),
-                1.0f, 1.2f, target.getRandom().nextLong()
-                )
-        );
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BANJO.value(), 1f, 1.2f);
     }
 
     public static void playBadSound(ServerPlayer target) {
-        target.connection.send(new ClientboundSoundPacket(
-                        SoundEvents.NOTE_BLOCK_BASS,
-                        SoundSource.MASTER,
-                        target.getX(), target.getY(), target.getZ(),
-                        1.0f, 1.0f, target.getRandom().nextLong()
-                )
-        );
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BASS.value(), 1f, 1.0f);
     }
 
     //
@@ -223,11 +231,11 @@ public class TappaaCommand {
         }
 
         src.sendSystemMessage(Component.empty()
-                .append(Tappaa.playerTextComponent(group.get().getOwner(), ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
+                .append(TappaaUtil.playerTextComponent(group.get().getOwner(), ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
                 .append(Component.literal("'s group:").withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD)))
         ;
         for (ServerPlayer player : group.get().getMembers()) {
-            src.sendSystemMessage(Tappaa.playerTextComponent(player, ChatFormatting.ITALIC));
+            src.sendSystemMessage(TappaaUtil.playerTextComponent(player, ChatFormatting.ITALIC));
         }
         return 1;
     }
@@ -320,8 +328,8 @@ public class TappaaCommand {
 
         group.get().removeFromGroup(target);
 
-        src.sendSystemMessage(Group.getKickedMessage(group.get()));
-        playBadSound(src);
+        target.sendSystemMessage(Group.getKickedMessage(group.get()));
+        TappaaCommand.playBadSound(target);
 
         group.get().broadcastMessage(Group.getKickedBroadcastMessage(target), true);
         group.get().forEachMember(TappaaCommand::playBadSound, true);
@@ -350,4 +358,115 @@ public class TappaaCommand {
 
         return 1;
     }
+
+
+
+
+    // DEV
+
+    private static int devForceCreateGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        if (GroupManager.INSTANCE.getGroup(src).isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_GROUP.create();
+        }
+
+        Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
+
+        // remove from groups, disband if theyre the owner (ill make an owner-swap thing later)
+        for (ServerPlayer player : players) {
+            if (player == src) {
+                continue;
+            }
+
+            Optional<Group> group = GroupManager.INSTANCE.getGroup(player);
+            if (group.isPresent()) {
+                if (group.get().getOwner() == player) {
+                    GroupManager.INSTANCE.disbandGroup(group.get(), false);
+                } else {
+                    group.get().removeFromGroup(player);
+
+                    player.sendSystemMessage(Group.getKickedMessage(group.get()));
+                    TappaaCommand.playBadSound(player);
+
+                    group.get().broadcastMessage(Group.getKickedBroadcastMessage(player), true);
+                    group.get().forEachMember(TappaaCommand::playBadSound, true);
+                }
+            }
+        }
+
+        Group newGroup = GroupManager.INSTANCE.createGroup(src);
+
+        players.forEach(player -> {
+            newGroup.addToGroup(player);
+            TappaaCommand.playYaySound(player);
+            player.sendSystemMessage(Component.empty()
+                    .append(Component.literal("You have been forcefully added to ").withStyle(ChatFormatting.GREEN))
+                    .append(TappaaUtil.playerTextComponent(src, ChatFormatting.GOLD))
+                    .append(Component.literal("'s group.").withStyle(ChatFormatting.GREEN))
+
+            );
+        });
+
+        playYaySound(src);
+        src.sendSystemMessage(Component.literal("Succesfully force-created group.").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+    private static int devGetGroupUuid(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(target);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_OTHER_NOT_IN_GROUP.create();
+        }
+
+        src.sendSystemMessage(Component.empty()
+                .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
+                .append(Component.literal(" is a part of ").withStyle(ChatFormatting.WHITE))
+                .append(TappaaUtil.playerTextComponent(group.get().getOwner(), ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
+                .append(Component.literal("'s group").withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
+                .append(Component.literal(" with UUID ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal("[").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(group.get().getGroupUuid().toString())
+                        .withStyle(ChatFormatting.AQUA)
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard(group.get().getGroupUuid().toString())))
+                        .withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowText(Component.translatable("chat.copy.click"))))
+                )
+                .append(Component.literal("]").withStyle(ChatFormatting.GREEN))
+        );
+        return 1;
+    }
+
+    private static int devGetDuelUuid(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        return 0;
+
+//        Optional<Group> group = GroupManager.INSTANCE.getGroup(target);
+//        if (group.isEmpty()) {
+//            playBadSound(target);
+//            throw ERROR_NOT_IN_GROUP.create();
+//        }
+//
+//        src.sendSystemMessage(Component.empty()
+//                .append(Tappaa.playerTextComponent(target, ChatFormatting.GOLD))
+//                .append(Component.literal(" is a part of ").withStyle(ChatFormatting.WHITE))
+//                .append(Tappaa.playerTextComponent(group.get().getOwner(), ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
+//                .append(Component.literal("'s group").withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD))
+//                .append(Component.literal(" with UUID ").withStyle(ChatFormatting.WHITE))
+//                .append(Component.literal("[").withStyle(ChatFormatting.GREEN))
+//                .append(Component.literal(group.get().getGroupUuid().toString())
+//                        .withStyle(ChatFormatting.AQUA)
+//                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard(group.get().getGroupUuid().toString())))
+//                )
+//                .append(Component.literal("]").withStyle(ChatFormatting.GREEN))
+//        );
+//        return 1;
+    }
+
 }

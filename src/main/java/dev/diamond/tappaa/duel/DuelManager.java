@@ -1,28 +1,16 @@
 package dev.diamond.tappaa.duel;
 
-import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.group.Group;
-import it.unimi.dsi.fastutil.ints.IntList;
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.FireworkRocketEntity;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.FireworkExplosion;
-import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.level.GameType;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class DuelManager {
@@ -41,13 +29,23 @@ public class DuelManager {
         duels.put(uuid, duel);
     }
 
+    public Optional<Duel> findDuel(UUID uuid) {
+        return Optional.ofNullable(this.duels.get(uuid));
+    }
+
+    public Optional<Duel> getDuel(ServerPlayer player) {
+        return Duel.getDuelUuid(player).flatMap(this::findDuel);
+    }
+
+    public void removeDuel(Duel duel) {
+        this.duels.remove(duel.getUuid());
+    }
+
 
     public static void registerDuelingEvents() {
         ServerLivingEntityEvents.AFTER_DAMAGE.register(DuelManager::entityTookDamage);
         ServerLivingEntityEvents.ALLOW_DEATH.register(DuelManager::allowEntityDeath);
     }
-
-
 
     private static void entityTookDamage(LivingEntity livingEntity, DamageSource damageSource, float baseDamageTaken, float damageTaken, boolean blocked) {
     }
@@ -59,21 +57,21 @@ public class DuelManager {
         }
 
         if (livingEntity instanceof ServerPlayer player) {
-            for (Duel duel : DuelManager.INSTANCE.duels.values()) {
-                if (duel.involvesPlayer(player)) { // FIXME THIS SUCKS SO BAD WE CANT BE LOOPING OVER EVERY DUEL. KEEP A REFERENCE ON THE PLAYER DATA LIKE GROUPS DO
+            Optional<Duel> duel = DuelManager.INSTANCE.getDuel(player);
 
-                    Entity killerEntity = damageSource.getDirectEntity();
-                    if (killerEntity instanceof ServerPlayer killerPlayer && duel.involvesPlayer(killerPlayer)) {
-                        // do something with the player that killed them
-                    }
+            if (duel.isPresent()) {
 
-                    Duel.spawnKillFirework(player);
-
-                    player.setGameMode(GameType.SPECTATOR);
-                    player.setHealth(20.0f);
-
-                    return false;
+                Entity killerEntity = damageSource.getDirectEntity();
+                if (killerEntity instanceof ServerPlayer killerPlayer && duel.get().involvesPlayer(killerPlayer)) {
+                    // do something with the player that killed them
                 }
+
+                Duel.spawnKillFirework(player);
+
+                player.setGameMode(GameType.SPECTATOR);
+                player.setHealth(20.0f);
+
+                return false;
             }
         }
         return true;
