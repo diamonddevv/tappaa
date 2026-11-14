@@ -37,7 +37,7 @@ public class Duel {
         this.players = new HashMap<>();
         
         players.forEach(player -> {
-            this.players.put(player, new PlayerDuelState(player));
+            this.players.put(player, new PlayerDuelState(player, 1));
             setDuelAttachment(player);
         });
     }
@@ -73,12 +73,19 @@ public class Duel {
         return players.values().stream().allMatch(state);
     }
 
+    public long countPlayerStates(Predicate<PlayerDuelState> state) {
+        return players.values().stream().filter(state).count();
+    }
+
     public void withState(ServerPlayer player, Consumer<PlayerDuelState> consumer) {
         consumer.accept(players.get(player));
     }
 
     public void checkDuelStatus() {
-
+        long playersAlive = countPlayerStates(PlayerDuelState::isAlive);
+        if (playersAlive == 1) {
+            endDuel();
+        }
     }
 
     public void endDuel() {
@@ -88,11 +95,11 @@ public class Duel {
 
     public void onPlayerDied(ServerPlayer player) {
         TappaaUtil.playSoundToPlayer(player, SoundEvents.WARDEN_ATTACK_IMPACT, 1, 0.8f);
-        withState(player, state -> state.setEliminated(true));
+        withState(player, PlayerDuelState::reduceLives);
         checkDuelStatus();
     }
 
-    public void onKilledPlayer(ServerPlayer player) {
+    public void onKilledPlayer(ServerPlayer killer) {
 
     }
 

@@ -64,12 +64,15 @@ public class DuelManager {
                 Entity killerEntity = damageSource.getDirectEntity();
                 if (killerEntity instanceof ServerPlayer killerPlayer && duel.get().involvesPlayer(killerPlayer)) {
                     // do something with the player that killed them
+                    duel.get().onKilledPlayer(killerPlayer);
                 }
 
                 Duel.spawnKillFirework(player);
 
                 player.setGameMode(GameType.SPECTATOR);
                 player.setHealth(20.0f);
+
+                duel.get().onPlayerDied(player);
 
                 return false;
             }
