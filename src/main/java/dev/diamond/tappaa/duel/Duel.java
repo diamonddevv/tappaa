@@ -45,16 +45,21 @@ public class Duel {
     private final Kit kit;
     private final int respawnTicks;
     private final MinecraftServer server;
+    private final boolean useKit;
     private int timerTicks;
+    private final Consumer<Duel> onEnd;
 
-    public Duel(UUID uuid, MinecraftServer server, Kit kit, Collection<ServerPlayer> players) {
+    public Duel(UUID uuid, MinecraftServer server, Kit kit, boolean useKit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
         this.uuid = uuid;
         this.server = server;
         this.kit = kit;
+        this.useKit = useKit;
         this.players = new HashMap<>();
 
         this.respawnTicks = 5 * 20;
         this.timerTicks = 0;
+
+        this.onEnd = onEnd;
         
         players.forEach(player -> {
             this.players.put(player.getUUID(), new PlayerDuelState(player, 3));
@@ -141,11 +146,11 @@ public class Duel {
         forEachMemberOfDuel(player -> {
             clearDuelAttachment(player);
             player.sendSystemMessage(duelEndedMessage);
-
             player.sendSystemMessage(leaderboardMessage);
-
             restorePlayerToPreDuel(player);
         });
+
+        this.onEnd.accept(this);
 
         DuelManager.INSTANCE.removeDuel(this);
     }
@@ -177,7 +182,9 @@ public class Duel {
             player.setGameMode(GameType.SURVIVAL);
             player.removeAllEffects();
             resetHealthAndHunger(player);
-            kit.copyToPlayer(player);
+            if (useKit) {
+                kit.copyToPlayer(player);
+            }
         });
     }
 
@@ -226,7 +233,14 @@ public class Duel {
         player.setGameMode(GameType.SURVIVAL);
         player.removeAllEffects();
         teleport(player, duelState.getPreDuelPosition());
-        kit.copyToPlayer(player);
+
+        if (useKit) {
+            kit.copyToPlayer(player);
+        } else {
+            // restore to pre-duel inventory as if it were the kit
+            Kit.restorePlayerInventory(player, duelState.getPreDuelItems());
+        }
+
         duelState.setAwaitingRespawn(false);
     }
 

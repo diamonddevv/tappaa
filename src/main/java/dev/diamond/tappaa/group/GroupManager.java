@@ -56,6 +56,7 @@ public class GroupManager {
                 TappaaCommand.playYaySound(player);
                 player.sendSystemMessage(message);
             }
+            player.removeAttached(Group.GROUP_ID_ATTACHMENT);
         }
         group.clearGroup();
         this.groups.remove(group.getGroupUuid());

@@ -1,6 +1,7 @@
 package dev.diamond.tappaa;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -46,7 +47,8 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_CANT_KICK_NON_MEMBER = new SimpleCommandExceptionType(Component.literal("You can't kick someone who isn't in your party!"));
     private static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_DUEL = new SimpleCommandExceptionType(Component.literal("Your group is already in a duel!"));
-    private static final SimpleCommandExceptionType ERROR_BUSY_DUELING = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
+    private static final SimpleCommandExceptionType ERROR_OTHER_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is already in a group!"));
+    private static final SimpleCommandExceptionType ERROR_OTHER_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
     private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
@@ -96,11 +98,21 @@ public class TappaaCommand {
                                         argument("players", EntityArgument.players()).executes(TappaaCommand::devForceInvite)
                                 )
                         ).then(
-                                literal("testui").executes(TappaaCommand::openKitUi)
+                                literal("forceduel").then(
+                                        argument("player", EntityArgument.player()).executes(TappaaCommand::devForceDuelDirect)
+                                )
                         )
                 ).then(
                         literal("duel").then(
-                                literal("group").executes(TappaaCommand::duelGroup)
+                                literal("request").then(
+                                        argument("player", EntityArgument.player()).executes(TappaaCommand::duelDirect).then(
+                                                argument("use_kit", BoolArgumentType.bool()).executes(TappaaCommand::duelDirect)
+                                        )
+                                )
+                        ).then(
+                                literal("group").executes(TappaaCommand::duelGroup).then(
+                                        argument("use_kit", BoolArgumentType.bool()).executes(TappaaCommand::duelGroup)
+                                )
                         ).then(
                                 literal("end").executes(TappaaCommand::endDuel)
                         )
@@ -190,7 +202,7 @@ public class TappaaCommand {
 
         if (DuelManager.INSTANCE.getDuel(target).isPresent()) {
             playBadSound(src);
-            throw ERROR_BUSY_DUELING.create();
+            throw ERROR_OTHER_IN_DUEL.create();
         }
 
         group.get().invite(target);
@@ -342,6 +354,42 @@ public class TappaaCommand {
 
     // DUEL
 
+    private static int duelDirect(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_GROUP.create();
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+        if (duel.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_DUEL.create();
+        }
+
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        Optional<Group> targetGroup = GroupManager.INSTANCE.getGroup(target);
+        if (targetGroup.isPresent()) {
+            playBadSound(src);
+            throw ERROR_OTHER_IN_GROUP.create();
+        }
+
+        Optional<Duel> targetDuel = DuelManager.INSTANCE.getDuel(target);
+        if (targetDuel.isPresent()) {
+            playBadSound(src);
+            throw ERROR_OTHER_IN_DUEL.create();
+        }
+
+        // set up duel
+
+        // todo: make this an invite system
+
+        return 1;
+    }
+
     private static int duelGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
@@ -361,7 +409,14 @@ public class TappaaCommand {
             throw ERROR_ALREADY_IN_DUEL.create();
         }
 
-        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get());
+        boolean useKit;
+        try {
+            useKit = BoolArgumentType.getBool(ctx, "use_kit");
+        } catch (IllegalArgumentException iae) {
+            useKit = true;
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), false, useKit);
 
         if (duel.isPresent()) { // this should always be true, really
             for (ServerPlayer member : duel.get().getPlayers()) {
@@ -527,6 +582,55 @@ public class TappaaCommand {
 
         playYaySound(src);
         src.sendSystemMessage(Component.literal("Succesfully force-invited player(s).").withStyle(ChatFormatting.GREEN));
+        return 1;
+    }
+
+    private static int devForceDuelDirect(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_GROUP.create();
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+        if (duel.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_DUEL.create();
+        }
+
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+
+        Optional<Group> targetGroup = GroupManager.INSTANCE.getGroup(target);
+        if (targetGroup.isPresent()) {
+            playBadSound(src);
+            throw ERROR_OTHER_IN_GROUP.create();
+        }
+
+        Optional<Duel> targetDuel = DuelManager.INSTANCE.getDuel(target);
+        if (targetDuel.isPresent()) {
+            playBadSound(src);
+            throw ERROR_OTHER_IN_DUEL.create();
+        }
+
+        // set up duel
+        boolean useKit;
+        try {
+            useKit = BoolArgumentType.getBool(ctx, "use_kit");
+        } catch (IllegalArgumentException iae) {
+            useKit = true;
+        }
+
+        target.sendSystemMessage(Component.empty()
+                .append(Component.literal("You are forcefully dueling ").withStyle(ChatFormatting.GREEN))
+                .append(TappaaUtil.playerTextComponent(src, ChatFormatting.GOLD))
+        );
+
+        Group duelGroup = GroupManager.INSTANCE.createGroup(src);
+        duelGroup.addToGroup(target);
+        DuelManager.INSTANCE.createDuelFromGroup(duelGroup, true, useKit);
+
         return 1;
     }
 
