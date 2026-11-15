@@ -75,11 +75,6 @@ public class DuelManager {
 
             if (duel.isPresent()) {
 
-                if (player.isHolding(item -> item.has(DataComponents.DEATH_PROTECTION))) {
-                    duel.get().getDuelState(player).incrementTotemPops();
-                    return true;
-                }
-
                 Entity killerEntity = damageSource.getDirectEntity();
                 ServerPlayer killer = null;
                 if (killerEntity instanceof ServerPlayer killerPlayer && duel.get().involvesPlayer(killerPlayer)) {
@@ -87,6 +82,15 @@ public class DuelManager {
                     killer = killerPlayer;
                     duel.get().onKilledPlayer(killerPlayer);
                 }
+
+                if (player.isHolding(item -> item.has(DataComponents.DEATH_PROTECTION))) {
+                    if (killer instanceof ServerPlayer killerPlayer && duel.get().involvesPlayer(killerPlayer)) {
+                        duel.get().getDuelState(killerPlayer).incrementTotemPops();
+                    }
+                    return true;
+                }
+
+
 
                 duel.get().onPlayerDied(player, killer);
 

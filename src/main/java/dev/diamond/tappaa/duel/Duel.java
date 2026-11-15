@@ -285,7 +285,7 @@ public class Duel {
                 int totems2 = duelState2.getTotemPops();
 
                 if (totems1 == totems2) return 0;
-                return totems1 > totems2 ? 1 : -1; // sort obverse order - less totems is better
+                return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
             }
             return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
         }).toList();
