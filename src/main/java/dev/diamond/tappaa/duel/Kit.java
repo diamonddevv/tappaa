@@ -33,7 +33,7 @@ public class Kit implements MenuProvider, Container {
     private final NonNullList<ItemStack> items;
 
     public Kit() {
-        this.containerName = Component.literal("testing testing 123");
+        this.containerName = Component.literal("Duel Kit");
         this.items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
 
 
