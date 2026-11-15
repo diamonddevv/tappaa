@@ -11,6 +11,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -28,14 +29,18 @@ public class Group {
     );
 
     private final UUID uuid;
+    private final MinecraftServer server;
     private UUID duelUuid;
-    private ServerPlayer owner;
-    private final Collection<ServerPlayer> players;
-    private final Collection<ServerPlayer> invites;
+    private UUID ownerUuid;
+    private final Collection<UUID> players;
+    private final Collection<UUID> invites;
 
     public Group(UUID uuid, ServerPlayer owner) {
         this.uuid = uuid;
-        this.owner = owner;
+        this.ownerUuid = owner.getUUID();
+
+        this.server = owner.level().getServer();
+
         this.players = new ArrayList<>();
         this.invites = new ArrayList<>();
         this.duelUuid = null;
@@ -47,12 +52,16 @@ public class Group {
         return uuid;
     }
 
+    public MinecraftServer getServer() {
+        return this.server;
+    }
+
     public ServerPlayer getOwner() {
-        return owner;
+        return server.getPlayerList().getPlayer(ownerUuid);
     }
 
     public Collection<ServerPlayer> getMembers() {
-        return players;
+        return players.stream().map(server.getPlayerList()::getPlayer).toList();
     }
 
     public void setDuelUuid(UUID uuid) {
@@ -68,7 +77,7 @@ public class Group {
             return;
         }
         player.setAttached(GROUP_ID_ATTACHMENT, this.uuid);
-        this.players.add(player);
+        this.players.add(player.getUUID());
     }
 
     public void removeFromGroup(ServerPlayer player) {
@@ -79,7 +88,7 @@ public class Group {
     }
 
     public void clearGroup() {
-        for (ServerPlayer player : players) {
+        for (ServerPlayer player : getMembers()) {
             if (player.hasAttached(GROUP_ID_ATTACHMENT) && player.getAttached(GROUP_ID_ATTACHMENT) == uuid) {
                 player.removeAttached(GROUP_ID_ATTACHMENT);
             }
@@ -93,7 +102,7 @@ public class Group {
 
     public void broadcastMessage(Component message, boolean includeOwner) {
         for (ServerPlayer member : getMembers()) {
-            if (includeOwner || member != owner) {
+            if (includeOwner || member.getUUID() != ownerUuid) {
                 member.sendSystemMessage(message);
             }
         }
@@ -101,22 +110,22 @@ public class Group {
 
     public void forEachMember(Consumer<ServerPlayer> action, boolean includeOwner) {
         for (ServerPlayer member : getMembers()) {
-            if (includeOwner || member != owner) {
+            if (includeOwner || member.getUUID() != ownerUuid) {
                 action.accept(member);
             }
         }
     }
 
     public void invite(ServerPlayer player) {
-        invites.add(player);
+        invites.add(player.getUUID());
     }
 
     public void rescindInvite(ServerPlayer player) {
-        invites.remove(player);
+        invites.remove(player.getUUID());
     }
 
     public boolean isPlayerInvited(ServerPlayer player) {
-        return invites.contains(player);
+        return invites.contains(player.getUUID());
     }
 
 

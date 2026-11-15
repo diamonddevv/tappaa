@@ -27,7 +27,7 @@ public class DuelManager {
     public Optional<Duel> createDuelFromGroup(Group group) {
         if (!group.hasValidActiveDuel()) {
             UUID uuid = UUID.randomUUID();
-            Duel duel = new Duel(uuid, group.getMembers());
+            Duel duel = new Duel(uuid, group.getServer(), group.getMembers());
             group.setDuelUuid(uuid);
             duels.put(uuid, duel);
             return Optional.of(duel);

@@ -2,11 +2,13 @@ package dev.diamond.tappaa.duel;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 
 public class PlayerDuelState {
     private final ServerPlayer player;
 
     private final GameType preDuelGamemode;
+    private final Vec3 preDuelPosition;
 
     private int kills;
     private int deaths;
@@ -20,6 +22,7 @@ public class PlayerDuelState {
         this.player = player;
 
         this.preDuelGamemode = player.gameMode();
+        this.preDuelPosition = player.position();
 
         this.kills = 0;
         this.deaths = 0;
@@ -85,5 +88,9 @@ public class PlayerDuelState {
 
     public GameType getPreDuelGamemode() {
         return preDuelGamemode;
+    }
+
+    public Vec3 getPreDuelPosition() {
+        return preDuelPosition;
     }
 }

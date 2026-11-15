@@ -38,8 +38,7 @@ public abstract class ServerPlayerMixin {
             }
 
             if (respawnTicks <= 0 && duelState.hasRemainingLives() && duelState.isAwaitingRespawn()) {
-                self.setGameMode(GameType.SURVIVAL);
-                duelState.setAwaitingRespawn(false);
+                duel.get().onRespawn(self);
             }
 
             if (!duelState.isAwaitingRespawn()) {

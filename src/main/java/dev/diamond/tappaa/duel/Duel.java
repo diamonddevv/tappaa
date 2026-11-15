@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.objects.AtlasSprite;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
@@ -38,17 +39,19 @@ public class Duel {
     );
 
     private final UUID uuid;
-    private final HashMap<ServerPlayer, PlayerDuelState> players;
+    private final HashMap<UUID, PlayerDuelState> players;
     private final int respawnTicks;
+    private final MinecraftServer server;
 
-    public Duel(UUID uuid, Collection<ServerPlayer> players) {
+    public Duel(UUID uuid, MinecraftServer server, Collection<ServerPlayer> players) {
         this.uuid = uuid;
+        this.server = server;
         this.players = new HashMap<>();
 
         this.respawnTicks = 5 * 20;
         
         players.forEach(player -> {
-            this.players.put(player, new PlayerDuelState(player, 3));
+            this.players.put(player.getUUID(), new PlayerDuelState(player, 3));
             setDuelAttachment(player);
         });
 
@@ -60,15 +63,15 @@ public class Duel {
     }
 
     public Collection<ServerPlayer> getPlayers() {
-        return this.players.keySet();
+        return this.players.keySet().stream().map(server.getPlayerList()::getPlayer).toList();
     }
 
     public boolean involvesPlayer(ServerPlayer player) {
-        return players.containsKey(player);
+        return players.containsKey(player.getUUID());
     }
 
     public PlayerDuelState getDuelState(ServerPlayer player) {
-        return players.get(player);
+        return players.get(player.getUUID());
     }
 
     public void setDuelAttachment(ServerPlayer player) {
@@ -99,11 +102,11 @@ public class Duel {
     }
 
     public void withState(ServerPlayer player, Consumer<PlayerDuelState> consumer) {
-        consumer.accept(players.get(player));
+        consumer.accept(players.get(player.getUUID()));
     }
 
     public void forEachMemberOfDuel(Consumer<ServerPlayer> consumer) {
-        players.keySet().forEach(consumer);
+        getPlayers().forEach(consumer);
     }
 
     public void checkDuelStatus() {
@@ -128,6 +131,7 @@ public class Duel {
 
             PlayerDuelState duelState = getDuelState(player);
             player.setGameMode(duelState.getPreDuelGamemode());
+            player.snapTo(duelState.getPreDuelPosition());
         });
 
         DuelManager.INSTANCE.removeDuel(this);
@@ -171,6 +175,14 @@ public class Duel {
         });
 
         checkDuelStatus();
+    }
+
+    public void onRespawn(ServerPlayer player) {
+        PlayerDuelState duelState = getDuelState(player);
+
+        player.setGameMode(GameType.SURVIVAL);
+        player.snapTo(duelState.getPreDuelPosition());
+        duelState.setAwaitingRespawn(false);
     }
 
     public void onKilledPlayer(ServerPlayer killer) {
