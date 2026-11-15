@@ -159,6 +159,7 @@ public class Duel {
                 state.setAwaitingRespawn(false);
                 restorePlayerToPreDuel(player);
             });
+            checkDuelStatus();
         }
     }
 
