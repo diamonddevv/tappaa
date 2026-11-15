@@ -15,6 +15,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.item.component.ResolvableProfile;
 
+import java.time.Duration;
+
 public class TappaaUtil {
 
     public static void playSoundToPlayer(ServerPlayer target, SoundEvent sound, float volume, float pitch) {
@@ -50,5 +52,17 @@ public class TappaaUtil {
             s.append(" ");
         }
         return s.toString();
+    }
+
+    public static String ticksToMinsSecs(int ticks) {
+        int seconds = (int) Math.floor(ticks / 20f);
+
+        int secondsLeft = seconds % 60;
+        int minutes = seconds / 60;
+
+        String MM = ((minutes     < 10) ? "0" : "") + minutes;
+        String SS = ((secondsLeft < 10) ? "0" : "") + secondsLeft;
+
+        return MM + ":" + SS;
     }
 }

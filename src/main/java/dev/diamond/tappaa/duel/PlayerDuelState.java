@@ -1,6 +1,8 @@
 package dev.diamond.tappaa.duel;
 
+import net.minecraft.core.NonNullList;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
@@ -9,6 +11,8 @@ public class PlayerDuelState {
 
     private final GameType preDuelGamemode;
     private final Vec3 preDuelPosition;
+    private final NonNullList<ItemStack> preDuelItems;
+    private int lastDeathTime;
 
     private int kills;
     private int deaths;
@@ -23,12 +27,14 @@ public class PlayerDuelState {
 
         this.preDuelGamemode = player.gameMode();
         this.preDuelPosition = player.position();
+        this.preDuelItems = Kit.savePlayerInventory(player);
 
         this.kills = 0;
         this.deaths = 0;
         this.totemPops = 0;
 
         this.respawnTimer = 0;
+        this.lastDeathTime = 0;
         this.awaitingRespawn = false;
         this.lives = initialLives;
     }
@@ -58,6 +64,10 @@ public class PlayerDuelState {
         this.deaths += 1;
     }
 
+    public void setLives(int lives) {
+        this.lives = lives;
+    }
+
     public boolean hasRemainingLives() {
         return this.lives > 0;
     }
@@ -78,6 +88,14 @@ public class PlayerDuelState {
         this.respawnTimer--;
     }
 
+    public int getLastDeathTime() {
+        return this.lastDeathTime;
+    }
+
+    public void setLastDeathTime(int ticks) {
+        this.lastDeathTime = ticks;
+    }
+
     public boolean isAwaitingRespawn() {
         return awaitingRespawn;
     }
@@ -92,5 +110,9 @@ public class PlayerDuelState {
 
     public Vec3 getPreDuelPosition() {
         return preDuelPosition;
+    }
+
+    public NonNullList<ItemStack> getPreDuelItems() {
+        return preDuelItems;
     }
 }

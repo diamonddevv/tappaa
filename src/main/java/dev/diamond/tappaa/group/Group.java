@@ -2,7 +2,9 @@ package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
+import dev.diamond.tappaa.duel.Kit;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.ChatFormatting;
@@ -16,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -30,8 +33,9 @@ public class Group {
 
     private final UUID uuid;
     private final MinecraftServer server;
+    private final Kit kit;
     private UUID duelUuid;
-    private UUID ownerUuid;
+    private final UUID ownerUuid;
     private final Collection<UUID> players;
     private final Collection<UUID> invites;
 
@@ -44,6 +48,8 @@ public class Group {
         this.players = new ArrayList<>();
         this.invites = new ArrayList<>();
         this.duelUuid = null;
+
+        this.kit = new Kit();
 
         addToGroup(owner);
     }
@@ -60,6 +66,10 @@ public class Group {
         return server.getPlayerList().getPlayer(ownerUuid);
     }
 
+    public Kit getKit() {
+        return kit;
+    }
+
     public Collection<ServerPlayer> getMembers() {
         return players.stream().map(server.getPlayerList()::getPlayer).toList();
     }
@@ -70,6 +80,11 @@ public class Group {
 
     public boolean hasValidActiveDuel() {
         return duelUuid != null && DuelManager.INSTANCE.findDuel(duelUuid).isPresent();
+    }
+
+    public Optional<Duel> getActiveDuel() {
+        if (duelUuid == null) return Optional.empty();
+        return DuelManager.INSTANCE.findDuel(duelUuid);
     }
 
     public void addToGroup(ServerPlayer player) {
@@ -83,7 +98,7 @@ public class Group {
     public void removeFromGroup(ServerPlayer player) {
         if (player.hasAttached(GROUP_ID_ATTACHMENT) && player.getAttached(GROUP_ID_ATTACHMENT) == uuid) {
             player.removeAttached(GROUP_ID_ATTACHMENT);
-            this.players.remove(player);
+            this.players.remove(player.getUUID());
         }
     }
 
@@ -97,7 +112,7 @@ public class Group {
     }
 
     public boolean hasMember(ServerPlayer player) {
-        return players.contains(player);
+        return players.contains(player.getUUID());
     }
 
     public void broadcastMessage(Component message, boolean includeOwner) {
@@ -140,7 +155,7 @@ public class Group {
     public static Component getSentInviteMessageGroup(Group group, ServerPlayer target) {
         return Component.empty()
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal("invited ").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(" invited ").withStyle(ChatFormatting.GREEN))
                 .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
                 .append(Component.literal(" to group.").withStyle(ChatFormatting.GREEN))
                 ;

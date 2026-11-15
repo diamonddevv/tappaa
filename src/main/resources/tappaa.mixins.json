@@ -3,7 +3,8 @@
     "package": "dev.diamond.tappaa.mixin",
     "compatibilityLevel": "JAVA_25",
     "mixins": [
-        "ServerExplosionMixin",
+        "FireworkRocketEntityAccessor",
+        "FireworkRocketEntityMixin",
         "ServerPlayerMixin"
     ],
     "injectors": {

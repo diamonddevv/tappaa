@@ -1,6 +1,8 @@
 package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.TappaaCommand;
+import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.duel.Duel;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -60,11 +62,23 @@ public class GroupManager {
     }
 
     public static void onPlayerJoinServer(ServerPlayer player) {
-        onPlayerLeaveServer(player);
+        GroupManager.INSTANCE.getGroup(player).ifPresent(group -> group.removeFromGroup(player));
     }
 
     public static void onPlayerLeaveServer(ServerPlayer player) {
         Optional<Group> group = GroupManager.INSTANCE.getGroup(player);
-        group.ifPresent(value -> value.removeFromGroup(player));
+        group.ifPresent(value -> {
+            if (value.getOwner().getUUID() == player.getUUID()) {
+                value.getActiveDuel().ifPresent(Duel::endDuel);
+                GroupManager.INSTANCE.disbandGroup(value, false);
+            } else {
+                value.forEachMember(member -> member.sendSystemMessage(
+                        Component.empty()
+                                .append(TappaaUtil.playerTextComponent(player, ChatFormatting.GOLD, ChatFormatting.ITALIC))
+                                .append(Component.literal(" was removed from the group, as they left the server.").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC))
+                ), true);
+                value.removeFromGroup(player);
+            }
+        });
     }
 }

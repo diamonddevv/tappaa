@@ -2,6 +2,7 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.mixin.FireworkRocketEntityAccessor;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
@@ -22,12 +23,12 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.FireworkExplosion;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class Duel {
 
@@ -37,18 +38,23 @@ public class Duel {
                     .persistent(UUIDUtil.CODEC)
                     .copyOnDeath()
     );
+    public static final String TAG_DEATH_FIREWORK = Tappaa.id("duel_death_firework").toString();
 
     private final UUID uuid;
     private final HashMap<UUID, PlayerDuelState> players;
+    private final Kit kit;
     private final int respawnTicks;
     private final MinecraftServer server;
+    private int timerTicks;
 
-    public Duel(UUID uuid, MinecraftServer server, Collection<ServerPlayer> players) {
+    public Duel(UUID uuid, MinecraftServer server, Kit kit, Collection<ServerPlayer> players) {
         this.uuid = uuid;
         this.server = server;
+        this.kit = kit;
         this.players = new HashMap<>();
 
         this.respawnTicks = 5 * 20;
+        this.timerTicks = 0;
         
         players.forEach(player -> {
             this.players.put(player.getUUID(), new PlayerDuelState(player, 3));
@@ -116,37 +122,72 @@ public class Duel {
         }
     }
 
+    public void tick() {
+        this.timerTicks++;
+    }
+
     public void endDuel() {
 
         Component leaderboardMessage = resolveFinalLeaderboardComponent(3);
 
+        MutableComponent duelEndedMessage = Component.empty()
+                .append("Duel ended. ").withStyle(ChatFormatting.YELLOW);
+
+        String timestamp = TappaaUtil.ticksToMinsSecs(this.timerTicks);
+        duelEndedMessage.append(
+                Component.literal("[" + timestamp + "]\n").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
+        );
+
         forEachMemberOfDuel(player -> {
             clearDuelAttachment(player);
-            player.sendSystemMessage(
-                    Component.empty()
-                            .append("Duel ended.").withStyle(ChatFormatting.YELLOW)
-            );
+            player.sendSystemMessage(duelEndedMessage);
 
             player.sendSystemMessage(leaderboardMessage);
 
-            PlayerDuelState duelState = getDuelState(player);
-            player.setGameMode(duelState.getPreDuelGamemode());
-            player.snapTo(duelState.getPreDuelPosition());
+            restorePlayerToPreDuel(player);
         });
 
         DuelManager.INSTANCE.removeDuel(this);
     }
 
+    public void eliminatePlayer(ServerPlayer player) {
+        if (this.involvesPlayer(player)) {
+            Duel.spawnKillFirework(player);
+            withState(player, state -> {
+                state.setLives(0);
+                state.setRespawnTimer(this.respawnTicks);
+                state.setAwaitingRespawn(false);
+                restorePlayerToPreDuel(player);
+            });
+        }
+    }
+
+    public void restorePlayerToPreDuel(ServerPlayer player) {
+        withState(player, state -> {
+            player.setGameMode(state.getPreDuelGamemode());
+            resetHealthAndHunger(player);
+            Kit.restorePlayerInventory(player, state.getPreDuelItems());
+            teleport(player, state.getPreDuelPosition());
+        });
+    }
+
     public void onStartDuel() {
         forEachMemberOfDuel(player -> {
             player.setGameMode(GameType.SURVIVAL);
+            player.removeAllEffects();
+            resetHealthAndHunger(player);
+            kit.copyToPlayer(player);
         });
     }
 
     public void onPlayerDied(ServerPlayer player, @Nullable ServerPlayer killer) {
         TappaaUtil.playSoundToPlayer(player, SoundEvents.WARDEN_ATTACK_IMPACT, 1, 0.8f);
 
-        MutableComponent deathMessage = Component.empty().append(TappaaUtil.playerTextComponent(player, ChatFormatting.GOLD));
+        MutableComponent deathMessage = Component.empty();
+
+        deathMessage.append(Component.literal("[" + TappaaUtil.ticksToMinsSecs(this.timerTicks) + "] ").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+
+        deathMessage.append(TappaaUtil.playerTextComponent(player, ChatFormatting.GOLD));
         if (killer == null) {
             deathMessage.append(Component.literal(" died").withStyle(ChatFormatting.YELLOW));
         } else {
@@ -164,14 +205,15 @@ public class Duel {
 
         // output
         player.setGameMode(GameType.SPECTATOR);
-        player.setHealth(20.0f);
+        resetHealthAndHunger(player); // this needs to happen WHEN we die, not after, or the "you died!" screen still shows
         withState(player, state -> {
             state.reduceLives();
-            player.sendSystemMessage(Component.literal("Lives remaining: " + state.remainingLives()).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+            player.sendSystemMessage(Component.literal("Died in [" + TappaaUtil.ticksToMinsSecs(this.timerTicks - state.getLastDeathTime()) + "] | Lives remaining: " + state.remainingLives()).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
             state.setRespawnTimer(this.respawnTicks);
             if (state.hasRemainingLives()) {
                 state.setAwaitingRespawn(true);
             }
+            state.setLastDeathTime(this.timerTicks);
         });
 
         checkDuelStatus();
@@ -181,8 +223,16 @@ public class Duel {
         PlayerDuelState duelState = getDuelState(player);
 
         player.setGameMode(GameType.SURVIVAL);
-        player.snapTo(duelState.getPreDuelPosition());
+        player.removeAllEffects();
+        teleport(player, duelState.getPreDuelPosition());
+        kit.copyToPlayer(player);
         duelState.setAwaitingRespawn(false);
+    }
+
+    public void resetHealthAndHunger(ServerPlayer player) {
+        player.setHealth(20.0f);
+        player.getFoodData().setFoodLevel(20);
+        player.getFoodData().setSaturation(5);
     }
 
     public void onKilledPlayer(ServerPlayer killer) {
@@ -201,6 +251,7 @@ public class Duel {
                 0x000000
         ), true, false));
 
+
         ItemStack stack = new ItemStack(Items.FIREWORK_ROCKET, 1);
         stack.set(DataComponents.FIREWORKS, new Fireworks(0, explosions));
 
@@ -209,7 +260,14 @@ public class Duel {
                 player.getX(), player.getY(), player.getZ(),
                 stack
         );
+        firework.addTag(TAG_DEATH_FIREWORK); // so we can differentiate this from other fireworks and apply some custom behavior in mixins.
+        ((FireworkRocketEntityAccessor) firework).tappaa$setFireworkLifetime(0);
         Projectile.spawnProjectile(firework, player.level(), stack);
+
+    }
+
+    public static void teleport(ServerPlayer player, Vec3 pos) {
+        player.teleportTo(pos.x, pos.y, pos.z);
     }
 
     public Component resolveFinalLeaderboardComponent(int results) {
@@ -233,9 +291,8 @@ public class Duel {
         }).toList();
 
         MutableComponent component = Component.empty();
-        component.append(
-                Component.literal("=-= RESULTS =-=\n").withStyle(ChatFormatting.DARK_AQUA, ChatFormatting.BOLD, ChatFormatting.UNDERLINE)
-        );
+
+        component.append("\n");
 
         for (int i = 0; i < results; i++) {
             if (i >= players.size()) break;
@@ -245,7 +302,7 @@ public class Duel {
             component.append(Component.literal((i + 1) + ") ").withStyle(ChatFormatting.YELLOW));
             component.append(TappaaUtil.playerTextComponent(player, 16, ChatFormatting.GOLD));
             component.append(Component.literal(": ").withStyle(ChatFormatting.YELLOW));
-            component.append(getKillDeathDisplayComponent(player));
+            component.append(getHudDisplayComponent(player, false));
             component.append(Component.literal("\n"));
 
         }
@@ -253,7 +310,7 @@ public class Duel {
         return component;
     }
 
-    public Component getKillDeathDisplayComponent(ServerPlayer player) {
+    public Component getHudDisplayComponent(ServerPlayer player, boolean showLives) {
         MutableComponent component = Component.empty();
 
         int kills = getDuelState(player).getKills();
@@ -270,6 +327,13 @@ public class Duel {
                 Identifier.fromNamespaceAndPath("minecraft", "items"),
                 Identifier.fromNamespaceAndPath("minecraft", "item/totem_of_undying"))
         ));
+
+        if (showLives) {
+            int lives = getDuelState(player).remainingLives();
+            component.append(Component.literal(" | ").withStyle(ChatFormatting.YELLOW));
+            component.append(Component.literal(String.valueOf(lives)).withStyle(ChatFormatting.AQUA));
+            component.append(Component.literal(" ❤").withStyle(ChatFormatting.YELLOW));
+        }
 
         return component;
     }

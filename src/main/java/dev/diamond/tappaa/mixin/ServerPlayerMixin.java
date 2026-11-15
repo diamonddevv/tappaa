@@ -6,7 +6,6 @@ import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.duel.PlayerDuelState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -42,7 +41,7 @@ public abstract class ServerPlayerMixin {
             }
 
             if (!duelState.isAwaitingRespawn()) {
-                TappaaUtil.setPlayerActionbarText(self, duel.get().getKillDeathDisplayComponent(self));
+                TappaaUtil.setPlayerActionbarText(self, duel.get().getHudDisplayComponent(self, true));
             }
 
 

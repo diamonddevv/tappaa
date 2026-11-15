@@ -47,6 +47,7 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_DUEL = new SimpleCommandExceptionType(Component.literal("Your group is already in a duel!"));
     private static final SimpleCommandExceptionType ERROR_BUSY_DUELING = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -76,8 +77,6 @@ public class TappaaCommand {
                                 literal("kick").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::kickMemberFromGroup)
                                 )
-                        ).then(
-                                literal("duel").executes(TappaaCommand::duelGroup)
                         )
                 ).then(
                         literal("dev").requires(src -> FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment()).then(
@@ -96,18 +95,24 @@ public class TappaaCommand {
                                 literal("forceinvite").then(
                                         argument("players", EntityArgument.players()).executes(TappaaCommand::devForceInvite)
                                 )
+                        ).then(
+                                literal("testui").executes(TappaaCommand::openKitUi)
                         )
                 ).then(
                         literal("duel").then(
+                                literal("group").executes(TappaaCommand::duelGroup)
+                        ).then(
                                 literal("end").executes(TappaaCommand::endDuel)
+                        )
+                ).then(
+                        literal("kit").then(
+                                literal("ui").executes(TappaaCommand::openKitUi)
                         )
                 )
         );
 
 
     }
-
-
 
 
     public static void playYaySound(ServerPlayer target) {
@@ -122,7 +127,7 @@ public class TappaaCommand {
         TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_IRON_XYLOPHONE.value(), 1, 1.8f);
     }
 
-    //
+    // GROUP
 
     private static int createGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
@@ -335,6 +340,8 @@ public class TappaaCommand {
         return 1;
     }
 
+    // DUEL
+
     private static int duelGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
@@ -369,6 +376,13 @@ public class TappaaCommand {
     private static int endDuel(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+
+        if (duel.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_DUEL.create();
+        }
+
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
             playBadSound(src);
@@ -380,15 +394,35 @@ public class TappaaCommand {
             throw ERROR_NOT_GROUP_OWNER.create();
         }
 
-        if (!group.get().hasValidActiveDuel()) {
+
+        duel.get().endDuel();
+
+        return 1;
+    }
+
+
+    // KIT
+
+    private static int openKitUi(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
             playBadSound(src);
-            throw ERROR_NOT_IN_DUEL.create();
+            throw ERROR_NOT_IN_GROUP.create();
         }
 
-        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
 
-        // this should always be true, really
-        duel.ifPresent(Duel::endDuel);
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        group.get().getKit().openContainerToPlayer(src);
 
         return 1;
     }
@@ -464,17 +498,20 @@ public class TappaaCommand {
                 continue;
             }
 
-            if (group.get().getOwner() == player) {
-                GroupManager.INSTANCE.disbandGroup(group.get(), false);
-            } else {
-                group.get().removeFromGroup(player);
+            GroupManager.INSTANCE.getGroup(player).ifPresent(playerGroup -> {
+                if (playerGroup.getOwner() == player) {
+                    GroupManager.INSTANCE.disbandGroup(group.get(), false);
+                } else {
+                    playerGroup.removeFromGroup(player);
 
-                player.sendSystemMessage(Group.getKickedMessage(group.get()));
-                TappaaCommand.playBadSound(player);
+                    player.sendSystemMessage(Group.getKickedMessage(group.get()));
+                    TappaaCommand.playBadSound(player);
 
-                group.get().broadcastMessage(Group.getKickedBroadcastMessage(player), true);
-                group.get().forEachMember(TappaaCommand::playBadSound, true);
-            }
+                    playerGroup.broadcastMessage(Group.getKickedBroadcastMessage(player), true);
+                    playerGroup.forEachMember(TappaaCommand::playBadSound, true);
+
+                }
+            });
         }
 
         players.forEach(player -> {
