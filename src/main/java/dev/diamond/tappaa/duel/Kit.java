@@ -1,5 +1,6 @@
 package dev.diamond.tappaa.duel;
 
+import com.mojang.serialization.Codec;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -127,6 +128,26 @@ public class Kit implements MenuProvider, Container {
             player.getInventory().setItem(i, stacks.get(i));
         };
     }
+
+    public void fromPlayerInventory(ServerPlayer player) {
+        for (int i = 0; i < HOTBAR_SLOTS; i++) {
+            ItemStack stack = player.getInventory().getItem(i).copy();
+            this.setItem(HOTBAR_SLOTS_START + i, stack);
+        }
+
+        for (int i = 0; i < INVENTORY_SLOTS; i++) {
+            ItemStack stack = player.getInventory().getItem(i + HOTBAR_SLOTS).copy();
+            this.setItem(i, stack);
+        }
+
+        setHelmetItem(player.getInventory().getItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE)));
+        setChestplateSlot(player.getInventory().getItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE)));
+        setLeggingsSlot(player.getInventory().getItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE)));
+        setBootsSlot(player.getInventory().getItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE)));
+        setOffhandSlot(player.getInventory().getItem(Inventory.SLOT_OFFHAND));
+
+    }
+
 
     @Override
     public @NonNull Component getDisplayName() {

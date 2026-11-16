@@ -120,6 +120,10 @@ public class TappaaCommand {
                 ).then(
                         literal("kit").then(
                                 literal("ui").executes(TappaaCommand::openKitUi)
+                        ).then(
+                                literal("from").then(
+                                        argument("player", EntityArgument.player()).executes(TappaaCommand::kitFromPlayer)
+                                )
                         )
                 )
         );
@@ -501,7 +505,37 @@ public class TappaaCommand {
         return 1;
     }
 
+    private static int kitFromPlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
 
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+        group.get().getKit().fromPlayerInventory(target);
+
+        playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Kit updated to ").withStyle(ChatFormatting.GREEN))
+                .append(TappaaUtil.playerTextComponent(target,ChatFormatting.GOLD))
+                .append(Component.literal("'s inventory.").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
 
 
     // DEV
