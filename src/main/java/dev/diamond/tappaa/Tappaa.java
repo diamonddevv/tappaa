@@ -26,10 +26,36 @@ public class Tappaa implements ModInitializer {
 		ServerPlayerEvents.LEAVE.register(GroupManager::onPlayerLeaveServer);
 
 		DuelManager.registerDuelingEvents();
+
+        LOGGER.info("{} (done loading)", pickThingToSayOnLoad(System.nanoTime()));
 	}
 
 	public static Identifier id(String path) {
 		return Identifier.fromNamespaceAndPath(MOD_ID, path);
 	}
 
+
+	private static String pickThingToSayOnLoad(long l) {
+		String[] lines = {
+				"its finnish",
+				"what",
+				"bing bong",
+				"yes",
+				"are you proud of me",
+				"anteeksi missä kirjasto on",
+				"this is an entirely serious mod",
+				"from the mind that brought you similarly mediocre mods",
+				"im not even a compsci student",
+				"java",
+				"theres gotta be at least one useful comment in here",
+				"<3",
+				"hi if you're reading this",
+				"im not liable",
+				"this is not legal advice",
+				"do your homework",
+				"stop downloading simple trims its not even good"
+		};
+
+		return lines[Math.toIntExact(l % lines.length)];
+	}
 }
