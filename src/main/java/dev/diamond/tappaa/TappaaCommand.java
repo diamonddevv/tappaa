@@ -21,6 +21,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.sounds.SoundEvents;
 
 import java.util.Collection;
@@ -82,7 +84,7 @@ public class TappaaCommand {
                                 )
                         )
                 ).then(
-                        literal("dev").requires(src -> FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment()).then(
+                        literal("dev").requires(src -> FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment() || src.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS))).then(
                                 literal("forcegroup").then(
                                         argument("players", EntityArgument.players()).executes(TappaaCommand::devForceCreateGroup)
                                 )
