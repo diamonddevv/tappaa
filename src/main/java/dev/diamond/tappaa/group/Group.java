@@ -38,8 +38,10 @@ public class Group {
     private final UUID ownerUuid;
     private final Collection<UUID> players;
     private final Collection<UUID> invites;
+    private final boolean quickDuelGroup;
+    private final boolean quickDuelUseKit;
 
-    public Group(UUID uuid, ServerPlayer owner) {
+    public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup, boolean quickDuelUseKit) {
         this.uuid = uuid;
         this.ownerUuid = owner.getUUID();
 
@@ -48,6 +50,9 @@ public class Group {
         this.players = new ArrayList<>();
         this.invites = new ArrayList<>();
         this.duelUuid = null;
+
+        this.quickDuelGroup = quickDuelGroup;
+        this.quickDuelUseKit = quickDuelUseKit;
 
         this.kit = new Kit();
 
@@ -68,6 +73,10 @@ public class Group {
 
     public Kit getKit() {
         return kit;
+    }
+
+    public boolean isQuickDuelGroup() {
+        return quickDuelGroup;
     }
 
     public Collection<ServerPlayer> getMembers() {
@@ -135,6 +144,18 @@ public class Group {
         invites.add(player.getUUID());
     }
 
+    public void onRespondInvite() {
+        if (isQuickDuelGroup()) {
+            if (invites.isEmpty()) {
+                if (players.size() > 1) {
+                    DuelManager.INSTANCE.createDuelFromGroup(this, true, quickDuelUseKit);
+                } else {
+                    GroupManager.INSTANCE.disbandGroup(this, false);
+                }
+            }
+        }
+    }
+
     public void rescindInvite(ServerPlayer player) {
         invites.remove(player.getUUID());
     }
@@ -168,7 +189,7 @@ public class Group {
 
         return Component.empty()
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal(" has invited you to join their duel group. ").withColor(TextColor.GREEN))
+                .append(Component.literal(" has invited you to join their duel group.\n").withColor(TextColor.GREEN))
                 .append(Component.literal("[ACCEPT]")
                         .withColor(TextColor.LIGHT_PURPLE)
                         .withStyle(ChatFormatting.UNDERLINE)

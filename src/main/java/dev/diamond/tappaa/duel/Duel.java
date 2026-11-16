@@ -2,6 +2,7 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.mixin.FireworkRocketEntityAccessor;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
@@ -9,8 +10,7 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.contents.objects.AtlasSprite;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -351,5 +351,36 @@ public class Duel {
         }
 
         return component;
+    }
+
+
+    public static Component getSentQuickDuelInviteMessage(ServerPlayer target) {
+        return Component.empty()
+                .append(Component.literal("Invited ").withStyle(ChatFormatting.GREEN))
+                .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
+                .append(Component.literal(" to duel.").withStyle(ChatFormatting.GREEN))
+                ;
+    }
+
+    public static Component getIncomingQuickDuelInviteMessage(Group group) {
+
+        String acceptCommand = "tappaa group accept " + group.getGroupUuid();
+        String declineCommand = "tappaa group decline " + group.getGroupUuid();
+
+        return Component.empty()
+                .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
+                .append(Component.literal(" has invited you to a duel.\n").withColor(TextColor.GREEN))
+                .append(Component.literal("[ACCEPT]")
+                        .withColor(TextColor.LIGHT_PURPLE)
+                        .withStyle(ChatFormatting.UNDERLINE)
+                        .withStyle(ChatFormatting.BOLD)
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(acceptCommand))))
+                .append(" ")
+                .append(Component.literal("[DECLINE]")
+                        .withColor(TextColor.DARK_RED)
+                        .withStyle(ChatFormatting.UNDERLINE)
+                        .withStyle(ChatFormatting.BOLD)
+                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(declineCommand))))
+                ;
     }
 }

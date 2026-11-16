@@ -19,8 +19,16 @@ public class GroupManager {
     public static final GroupManager INSTANCE = new GroupManager();
 
     public Group createGroup(ServerPlayer owner) {
+        return createGroupInternal(owner, false, false);
+    }
+
+    public Group createQuickDuelGroup(ServerPlayer owner, boolean usesKit) {
+        return createGroupInternal(owner, true, usesKit);
+    }
+
+    private Group createGroupInternal(ServerPlayer owner, boolean quickDuel, boolean quickDuelUsesKit) {
         UUID uuid = UUID.randomUUID();
-        Group group = new Group(uuid, owner);
+        Group group = new Group(uuid, owner, quickDuel, quickDuelUsesKit);
         this.groups.put(uuid, group);
         return group;
     }

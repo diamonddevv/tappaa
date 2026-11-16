@@ -50,6 +50,7 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_OTHER_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is already in a group!"));
     private static final SimpleCommandExceptionType ERROR_OTHER_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
     private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_INVITE_NOW = new SimpleCommandExceptionType(Component.literal("You can't invite players to your group right now!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -188,6 +189,11 @@ public class TappaaCommand {
             throw ERROR_NOT_GROUP_OWNER.create();
         }
 
+        if (group.get().isQuickDuelGroup()) {
+            playBadSound(src);
+            throw ERROR_CANT_INVITE_NOW.create();
+        }
+
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
 
         if (src == target) {
@@ -284,6 +290,7 @@ public class TappaaCommand {
 
         group.get().addToGroup(src);
         group.get().rescindInvite(src);
+        group.get().onRespondInvite();
 
         return 1;
     }
@@ -384,8 +391,20 @@ public class TappaaCommand {
         }
 
         // set up duel
+        boolean useKit;
+        try {
+            useKit = BoolArgumentType.getBool(ctx, "use_kit");
+        } catch (IllegalArgumentException iae) {
+            useKit = true;
+        }
 
-        // todo: make this an invite system
+        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(src, useKit);
+
+        duelGroup.invite(target);
+        target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
+
+        playYaySound(src);
+        src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(target));
 
         return 1;
     }
