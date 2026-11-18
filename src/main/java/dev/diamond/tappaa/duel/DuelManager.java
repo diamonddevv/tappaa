@@ -22,7 +22,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
-import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
@@ -67,7 +66,7 @@ public class DuelManager {
     }
 
     public static void registerDuelingEvents() {
-        ServerLivingEntityEvents.AFTER_DAMAGE.register(DuelManager::entityTookDamage);
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register(DuelManager::canEntityTakeDamage);
         ServerLivingEntityEvents.ALLOW_DEATH.register(DuelManager::allowEntityDeath);
         ServerPlayerEvents.JOIN.register(DuelManager::playerJoinsServer);
         ServerPlayerEvents.LEAVE.register(DuelManager::playerLeavesServer);
@@ -76,7 +75,16 @@ public class DuelManager {
         BlockEvents.USE_WITHOUT_ITEM.register(DuelManager::useBlockWithoutItem);
     }
 
-    private static void entityTookDamage(LivingEntity livingEntity, DamageSource damageSource, float baseDamageTaken, float damageTaken, boolean blocked) {
+    private static boolean canEntityTakeDamage(LivingEntity livingEntity, DamageSource damageSource, float damage) {
+        if (livingEntity instanceof ServerPlayer player) {
+            Optional<Duel> duel = DuelManager.INSTANCE.getDuel(player);
+            if (duel.isPresent()) {
+                Entity aggressor = damageSource.getEntity();
+                return !(aggressor instanceof ServerPlayer aggressorPlayer) ||
+                        duel.get().involvesPlayer(aggressorPlayer);
+            }
+        }
+        return true;
     }
 
 

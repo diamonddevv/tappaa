@@ -1,7 +1,10 @@
 package dev.diamond.tappaa.duel;
 
-import com.mojang.serialization.Codec;
+import dev.diamond.tappaa.Tappaa;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -15,6 +18,7 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import org.jspecify.annotations.NonNull;
 
 public class Kit implements MenuProvider, Container {
@@ -29,6 +33,8 @@ public class Kit implements MenuProvider, Container {
     private static final int LEGGINGS_SLOT = 38;
     private static final int BOOTS_SLOT = 39;
     private static final int OFFHAND_SLOT = 41;
+
+    private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("kit").toString();
 
     private final Component containerName;
     private final NonNullList<ItemStack> items;
@@ -92,19 +98,20 @@ public class Kit implements MenuProvider, Container {
     }
 
     public void copyToPlayer(ServerPlayer player) {
+
         for (int i = 0; i < HOTBAR_SLOTS; i++) {
-            player.getInventory().setItem(i, this.getItem(HOTBAR_SLOTS_START + i).copy());
+            player.getInventory().setItem(i, this.getItemForGiving(HOTBAR_SLOTS_START + i));
         }
 
         for (int i = 0; i < INVENTORY_SLOTS; i++) {
-            player.getInventory().setItem(i + HOTBAR_SLOTS, this.getItem(i).copy());
+            player.getInventory().setItem(i + HOTBAR_SLOTS, this.getItemForGiving(i));
         }
 
-        player.getInventory().setItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE), this.getItem(HELMET_SLOT).copy());
-        player.getInventory().setItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE), this.getItem(CHESTPLATE_SLOT).copy());
-        player.getInventory().setItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE), this.getItem(LEGGINGS_SLOT).copy());
-        player.getInventory().setItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE), this.getItem(BOOTS_SLOT).copy());
-        player.getInventory().setItem(Inventory.SLOT_OFFHAND, this.getItem(OFFHAND_SLOT).copy());
+        player.getInventory().setItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(HELMET_SLOT));
+        player.getInventory().setItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(CHESTPLATE_SLOT));
+        player.getInventory().setItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(LEGGINGS_SLOT));
+        player.getInventory().setItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(BOOTS_SLOT));
+        player.getInventory().setItem(Inventory.SLOT_OFFHAND, this.getItemForGiving(OFFHAND_SLOT));
     }
 
     public static NonNullList<ItemStack> savePlayerInventory(ServerPlayer player) {
@@ -148,6 +155,13 @@ public class Kit implements MenuProvider, Container {
 
     }
 
+    public static void clearPlayerOfKitItems(ServerPlayer player) {
+        ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> {
+            CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+            return data.copyTag().getBoolean(KIT_CUSTOM_DATA_TAG).orElse(false);
+        }, Integer.MAX_VALUE, false);
+    }
+
 
     @Override
     public @NonNull Component getDisplayName() {
@@ -177,6 +191,16 @@ public class Kit implements MenuProvider, Container {
     @Override
     public @NonNull ItemStack getItem(int slot) {
         return this.getItems().get(slot);
+    }
+
+    public @NonNull ItemStack getItemForGiving(int slot) {
+        ItemStack stack = getItem(slot).copy();
+        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+        data.update(nbt -> {
+            nbt.putBoolean(KIT_CUSTOM_DATA_TAG, true);
+        });
+        stack.set(DataComponents.CUSTOM_DATA, data);
+        return stack;
     }
 
     @Override
