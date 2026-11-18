@@ -2,9 +2,7 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -34,6 +32,11 @@ public class Kit implements MenuProvider, Container {
     private static final int BOOTS_SLOT = 39;
     private static final int OFFHAND_SLOT = 41;
 
+    private static final int INV_HELMET_SLOT = EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE);
+    private static final int INV_CHESTPLATE_SLOT = EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE);
+    private static final int INV_LEGGINGS_SLOT = EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE);
+    private static final int INV_BOOTS_SLOT = EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE);
+
     private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("kit").toString();
 
     private final Component containerName;
@@ -59,6 +62,25 @@ public class Kit implements MenuProvider, Container {
 
         setInventorySlot(new ItemStack(Items.ARROW, 64), 0);
 
+    }
+
+    public static int slotMapPlayer2Kit(int slot) {
+
+        if (slot >= 0 && slot < 9) {
+            return HOTBAR_SLOTS_START + slot;
+        }
+
+        if (slot >= 9 && slot < 9 + INVENTORY_SLOTS) {
+            return slot - HOTBAR_SLOTS;
+        }
+
+        if (slot == INV_HELMET_SLOT) return HELMET_SLOT;
+        if (slot == INV_CHESTPLATE_SLOT) return CHESTPLATE_SLOT;
+        if (slot == INV_LEGGINGS_SLOT) return LEGGINGS_SLOT;
+        if (slot == INV_BOOTS_SLOT) return BOOTS_SLOT;
+        if (slot == Inventory.SLOT_OFFHAND) return OFFHAND_SLOT;
+
+        return -1;
     }
 
     public void openContainerToPlayer(ServerPlayer player) {

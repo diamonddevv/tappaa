@@ -2,11 +2,13 @@ package dev.diamond.tappaa;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
+import dev.diamond.tappaa.duel.Kit;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
@@ -15,7 +17,10 @@ import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.SlotArgument;
 import net.minecraft.commands.arguments.UuidArgument;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.commands.arguments.item.ItemInput;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -24,6 +29,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -538,6 +544,44 @@ public class TappaaCommand {
 
         return 1;
     }
+
+    private static int kitSetItem(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        int slot = SlotArgument.getSlot(ctx, "slot");
+        ItemInput item = ItemArgument.getItem(ctx, "item");
+        int count = IntegerArgumentType.getInteger(ctx, "count");
+
+        ItemStack stack = item.createItemStack(count);
+
+        group.get().getKit().setItem(Kit.slotMapPlayer2Kit(slot), stack);
+        
+        playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))
+                .append() // item
+                .append(Component.literal(" to kit").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
 
 
     // DEV
