@@ -9,6 +9,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.duel.Kit;
+import dev.diamond.tappaa.duel.TestInventoryProvider;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
@@ -29,7 +30,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -58,7 +61,9 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_OTHER_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is already in a group!"));
     private static final SimpleCommandExceptionType ERROR_OTHER_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
     private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
+    private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_NO_PERMISSION = new SimpleCommandExceptionType(Component.literal("You can't edit the kit using the UI, you lack the permission."));
     private static final SimpleCommandExceptionType ERROR_CANT_INVITE_NOW = new SimpleCommandExceptionType(Component.literal("You can't invite players to your group right now!"));
+    private static final SimpleCommandExceptionType ERROR_BAD_SLOT = new SimpleCommandExceptionType(Component.literal("You can't edit into that slot!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -132,6 +137,16 @@ public class TappaaCommand {
                                 literal("from").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::kitFromPlayer)
                                 )
+                        ).then(
+                                literal("item").then(
+                                        argument("slot", SlotArgument.slot()).then(
+                                                argument("item", ItemArgument.item(ctx)).executes(TappaaCommand::kitSetItem).then(
+                                                        argument("count", IntegerArgumentType.integer(0)).executes(TappaaCommand::kitSetItem)
+                                                )
+                                        )
+                                )
+                        ).then(
+                                literal("reset").executes(TappaaCommand::kitReset)
                         )
                 )
         );
@@ -443,7 +458,7 @@ public class TappaaCommand {
         boolean useKit;
         try {
             useKit = BoolArgumentType.getBool(ctx, "use_kit");
-        } catch (IllegalArgumentException iae) {
+        } catch (IllegalArgumentException _) {
             useKit = true;
         }
 
@@ -491,6 +506,11 @@ public class TappaaCommand {
 
     private static int openKitUi(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        if (!(src.getPermissionContext().permissionLevel().isEqualOrHigherThan(PermissionLevel.GAMEMASTERS) || src.gameMode() == GameType.CREATIVE)) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_NO_PERMISSION.create();
+        }
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
         if (group.isEmpty()) {
@@ -566,17 +586,60 @@ public class TappaaCommand {
 
         int slot = SlotArgument.getSlot(ctx, "slot");
         ItemInput item = ItemArgument.getItem(ctx, "item");
-        int count = IntegerArgumentType.getInteger(ctx, "count");
+
+        int count;
+        try {
+            count = IntegerArgumentType.getInteger(ctx, "count");
+        } catch (IllegalArgumentException _) {
+            count = 1;
+        }
 
         ItemStack stack = item.createItemStack(count);
 
-        group.get().getKit().setItem(Kit.slotMapPlayer2Kit(slot), stack);
+        int realSlot = Kit.slotMapPlayer2Kit(slot);
+
+        if (realSlot == -1) {
+            playBadSound(src);
+            throw ERROR_BAD_SLOT.create();
+        }
+
+        group.get().getKit().setItem(realSlot, stack);
         
         playYaySound(src);
         src.sendSystemMessage(Component.empty()
                 .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))
-                .append() // item
+                .append(TappaaUtil.itemStackComponent(stack)) // item
                 .append(Component.literal(" to kit").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+    private static int kitReset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+
+        group.get().getKit().resetToDefault();
+
+        playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Reset kit. ").withStyle(ChatFormatting.GREEN))
         );
 
         return 1;

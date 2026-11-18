@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.contents.objects.AtlasSprite;
 import net.minecraft.network.chat.contents.objects.PlayerSprite;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
@@ -13,6 +14,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.component.ResolvableProfile;
 
 import java.time.Duration;
@@ -43,6 +47,12 @@ public class TappaaUtil {
 
     public static MutableComponent playerTextComponent(ServerPlayer player, ChatFormatting... formats) {
         return playerTextComponent(player, -1, formats);
+    }
+
+    public static MutableComponent itemStackComponent(ItemStack stack) {
+        return (Component.empty()
+                .append(stack.getDisplayName())
+        ).withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowItem(ItemStackTemplate.fromStack(stack))));
     }
 
     public static String ljust(String string, int size) {

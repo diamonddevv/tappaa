@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.ContainerUser;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -32,10 +33,11 @@ public class Kit implements MenuProvider, Container {
     private static final int BOOTS_SLOT = 39;
     private static final int OFFHAND_SLOT = 41;
 
-    private static final int INV_HELMET_SLOT = EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE);
-    private static final int INV_CHESTPLATE_SLOT = EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE);
-    private static final int INV_LEGGINGS_SLOT = EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE);
-    private static final int INV_BOOTS_SLOT = EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE);
+    private static final int INV_HELMET_SLOT = 103;
+    private static final int INV_CHESTPLATE_SLOT = 102;
+    private static final int INV_LEGGINGS_SLOT = 101;
+    private static final int INV_BOOTS_SLOT = 100;
+    private static final int INV_OFFHAND_SLOT = 99;
 
     private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("kit").toString();
 
@@ -48,20 +50,7 @@ public class Kit implements MenuProvider, Container {
 
 
         // default values
-        setHelmetItem(new ItemStack(Items.IRON_HELMET));
-        setChestplateSlot(new ItemStack(Items.IRON_CHESTPLATE));
-        setLeggingsSlot(new ItemStack(Items.IRON_LEGGINGS));
-        setBootsSlot(new ItemStack(Items.IRON_BOOTS));
-        setOffhandSlot(new ItemStack(Items.SHIELD));
-
-        setHotbarSlot(new ItemStack(Items.DIAMOND_SWORD), 0);
-        setHotbarSlot(new ItemStack(Items.DIAMOND_AXE), 1);
-        setHotbarSlot(new ItemStack(Items.BOW), 2);
-        setHotbarSlot(new ItemStack(Items.GOLDEN_APPLE, 3), 3);
-        setHotbarSlot(new ItemStack(Items.COOKED_BEEF, 64), 4);
-
-        setInventorySlot(new ItemStack(Items.ARROW, 64), 0);
-
+        resetToDefault();
     }
 
     public static int slotMapPlayer2Kit(int slot) {
@@ -74,11 +63,13 @@ public class Kit implements MenuProvider, Container {
             return slot - HOTBAR_SLOTS;
         }
 
+        System.out.println(slot);
+
         if (slot == INV_HELMET_SLOT) return HELMET_SLOT;
         if (slot == INV_CHESTPLATE_SLOT) return CHESTPLATE_SLOT;
         if (slot == INV_LEGGINGS_SLOT) return LEGGINGS_SLOT;
         if (slot == INV_BOOTS_SLOT) return BOOTS_SLOT;
-        if (slot == Inventory.SLOT_OFFHAND) return OFFHAND_SLOT;
+        if (slot == INV_OFFHAND_SLOT) return OFFHAND_SLOT;
 
         return -1;
     }
@@ -260,4 +251,21 @@ public class Kit implements MenuProvider, Container {
     }
 
 
+    public void resetToDefault() {
+        clearContent();
+
+        setHelmetItem(new ItemStack(Items.IRON_HELMET));
+        setChestplateSlot(new ItemStack(Items.IRON_CHESTPLATE));
+        setLeggingsSlot(new ItemStack(Items.IRON_LEGGINGS));
+        setBootsSlot(new ItemStack(Items.IRON_BOOTS));
+        setOffhandSlot(new ItemStack(Items.SHIELD));
+
+        setHotbarSlot(new ItemStack(Items.DIAMOND_SWORD), 0);
+        setHotbarSlot(new ItemStack(Items.DIAMOND_AXE), 1);
+        setHotbarSlot(new ItemStack(Items.BOW), 2);
+        setHotbarSlot(new ItemStack(Items.GOLDEN_APPLE, 3), 3);
+        setHotbarSlot(new ItemStack(Items.COOKED_BEEF, 64), 4);
+
+        setInventorySlot(new ItemStack(Items.ARROW, 64), 0);
+    }
 }
