@@ -4,6 +4,7 @@ import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.mixin.FireworkRocketEntityAccessor;
+import dev.diamond.tappaa.serial.DuelStats;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
@@ -127,7 +128,7 @@ public class Duel {
     public void checkDuelStatus() {
         long playersAlive = countPlayerStates(PlayerDuelState::hasRemainingLives);
         if (playersAlive == 1) {
-            endDuel();
+            endDuel(false);
         }
     }
 
@@ -149,7 +150,7 @@ public class Duel {
         }
     }
 
-    public void endDuel() {
+    public void endDuel(boolean endedEarly) {
 
         Component leaderboardMessage = resolveFinalLeaderboardComponent(3);
 
@@ -161,7 +162,28 @@ public class Duel {
                 Component.literal("[" + timestamp + "]\n").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
         );
 
+
+        if (!endedEarly) {
+            Optional<ServerPlayer> winner = getPlayers().stream().min(new DuelLeaderboardComparator(this));
+            if (winner.isPresent()) {
+                DuelStats.PlayerDuelStats winnerStats = DuelStats.getDuelStats(server).getPlayerStatsOrCreate(winner.get());
+                winnerStats.wins += 1;
+                DuelStats.getDuelStats(server).putPlayerStats(winner.get(), winnerStats);
+            }
+        }
+
+
         forEachMemberOfDuel(player -> {
+
+            withState(player, state -> {
+                DuelStats.PlayerDuelStats stats = DuelStats.getDuelStats(server).getPlayerStatsOrCreate(player);
+                stats.duelsPlayed += 1;
+                stats.kills += state.getKills();
+                stats.deaths += state.getDeaths();
+                stats.totemPops += state.getTotemPops();
+                DuelStats.getDuelStats(server).putPlayerStats(player, stats);
+            });
+
             clearDuelAttachment(player);
             player.sendSystemMessage(duelEndedMessage);
             player.sendSystemMessage(leaderboardMessage);
@@ -338,24 +360,7 @@ public class Duel {
     }
 
     public Component resolveFinalLeaderboardComponent(int results) {
-        List<ServerPlayer> players = getPlayers().stream().sorted((player1, player2) -> {
-
-            PlayerDuelState duelState1 = getDuelState(player1);
-            PlayerDuelState duelState2 = getDuelState(player2);
-
-            float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
-            float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
-
-            if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
-
-                int totems1 = duelState1.getTotemPops();
-                int totems2 = duelState2.getTotemPops();
-
-                if (totems1 == totems2) return 0;
-                return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
-            }
-            return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
-        }).toList();
+        List<ServerPlayer> players = getPlayers().stream().sorted(new DuelLeaderboardComparator(this)).toList();
 
         MutableComponent component = Component.empty();
 
@@ -458,5 +463,35 @@ public class Duel {
                         .withStyle(ChatFormatting.BOLD)
                         .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(declineCommand))))
                 ;
+    }
+
+
+    private static class DuelLeaderboardComparator implements Comparator<ServerPlayer> {
+
+        private final Duel duel;
+
+        public DuelLeaderboardComparator(Duel duel) {
+            this.duel = duel;
+        }
+
+        @Override
+        public int compare(ServerPlayer player1, ServerPlayer player2) {
+
+            PlayerDuelState duelState1 = duel.getDuelState(player1);
+            PlayerDuelState duelState2 = duel.getDuelState(player2);
+
+            float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
+            float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
+
+            if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
+
+                int totems1 = duelState1.getTotemPops();
+                int totems2 = duelState2.getTotemPops();
+
+                if (totems1 == totems2) return 0;
+                return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
+            }
+            return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
+        }
     }
 }

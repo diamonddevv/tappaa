@@ -633,7 +633,7 @@ public class TappaaCommand {
         }
 
 
-        duel.get().endDuel();
+        duel.get().endDuel(true);
 
         return 1;
     }

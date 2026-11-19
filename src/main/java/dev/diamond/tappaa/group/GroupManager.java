@@ -93,7 +93,7 @@ public class GroupManager {
         Optional<Group> group = GroupManager.INSTANCE.getGroup(player);
         group.ifPresent(value -> {
             if (value.getOwner().getUUID() == player.getUUID()) {
-                value.getActiveDuel().ifPresent(Duel::endDuel);
+                value.getActiveDuel().ifPresent(duel -> duel.endDuel(true));
                 GroupManager.INSTANCE.disbandGroup(value, false);
             } else {
                 value.forEachMember(member -> member.sendSystemMessage(

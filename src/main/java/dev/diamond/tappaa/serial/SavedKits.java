@@ -13,34 +13,31 @@ import java.util.*;
 
 public class SavedKits extends SavedData {
 
-    private static final Codec<SavedKits> CODEC = SavedKitData.CODEC.listOf().xmap(
+    private static final Codec<SavedKits> CODEC = Codec.unboundedMap(
+            Identifier.CODEC, IndexedItemStack.CODEC.listOf()
+    ).xmap(
             SavedKits::new,
-            SavedKits::getRawData
+            SavedKits::getMap
     );
 
     private static final SavedDataType<SavedKits> TYPE = new SavedDataType<>(
             Tappaa.id("saved_kits"),
             SavedKits::new,
-            CODEC,
-            null
+            CODEC, null
     );
 
-    private final HashMap<Identifier, SavedKitData> data;
+    private final Map<Identifier, List<IndexedItemStack>> data;
 
     private SavedKits() {
         this.data = new HashMap<>();
     }
 
-    private SavedKits(List<SavedKitData> list) {
-        this.data = new HashMap<>();
-
-        for (SavedKitData kit : list) {
-            this.data.put(kit.id, kit);
-        }
+    private SavedKits(Map<Identifier, List<IndexedItemStack>> map) {
+        this.data = map;
     }
 
-    private List<SavedKitData> getRawData() {
-        return data.values().stream().toList();
+    private Map<Identifier, List<IndexedItemStack>> getMap() {
+        return data;
     }
 
 
@@ -49,9 +46,8 @@ public class SavedKits extends SavedData {
     }
 
     public Optional<HashMap<Integer, ItemStack>> getMappedItemsFromId(Identifier id) {
-        return Optional.ofNullable(this.data.get(id)).map(SavedKitData::mapItems);
+        return Optional.ofNullable(this.data.get(id)).map(IndexedItemStack::decomposeList);
     }
-
 
     public boolean idExists(Identifier id) {
         return this.data.containsKey(id);
@@ -65,7 +61,7 @@ public class SavedKits extends SavedData {
             stacks.add(new IndexedItemStack(entry.getKey(), entry.getValue()));
         }
 
-        this.data.put(id, new SavedKitData(id, stacks));
+        this.data.put(id, stacks);
 
         this.setDirty();
         return true;
@@ -83,25 +79,17 @@ public class SavedKits extends SavedData {
         return server.getDataStorage().computeIfAbsent(TYPE);
     }
 
-    private record SavedKitData(Identifier id, List<IndexedItemStack> items) {
-        public static final Codec<SavedKitData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Identifier.CODEC.fieldOf("id").forGetter(SavedKitData::id),
-                IndexedItemStack.CODEC.listOf().fieldOf("items").forGetter(SavedKitData::items)
-        ).apply(instance, SavedKitData::new));
-
-        public HashMap<Integer, ItemStack> mapItems() {
-            HashMap<Integer, ItemStack> map = new HashMap<>();
-            for (IndexedItemStack idxStack : items) {
-                map.put(idxStack.idx, idxStack.stack);
-            }
-            return map;
-        }
-    }
 
     private record IndexedItemStack(int idx, ItemStack stack) {
         public static final Codec<IndexedItemStack> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.INT.fieldOf("idx").forGetter(IndexedItemStack::idx),
                 ItemStack.CODEC.fieldOf("stack").forGetter(IndexedItemStack::stack)
         ).apply(instance, IndexedItemStack::new));
+
+        public static HashMap<Integer, ItemStack> decomposeList(List<IndexedItemStack> stacks) {
+            HashMap<Integer, ItemStack> map = new HashMap<>();
+            stacks.forEach(s -> map.put(s.idx, s.stack));
+            return map;
+        }
     }
 }
