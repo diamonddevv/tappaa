@@ -95,6 +95,9 @@ public class DuelManager {
         if (livingEntity instanceof ServerPlayer player) {
             Optional<Duel> duel = DuelManager.INSTANCE.getDuel(player);
             if (duel.isPresent()) {
+
+                if (duel.get().isInPregame()) return false;
+
                 Entity aggressor = damageSource.getEntity();
                 return !(aggressor instanceof ServerPlayer aggressorPlayer) ||
                         duel.get().involvesPlayer(aggressorPlayer);

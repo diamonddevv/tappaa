@@ -22,6 +22,8 @@ public abstract class ServerPlayerMixin {
         ServerPlayer self = (ServerPlayer)(Object)this;
         Optional<Duel> duel = DuelManager.INSTANCE.getDuel(self);
         if (duel.isPresent()) {
+            if (duel.get().isInPregame()) return;
+
             PlayerDuelState duelState = duel.get().getDuelState(self);
             if (duelState == null) return;
 
@@ -29,9 +31,12 @@ public abstract class ServerPlayerMixin {
 
 
             if (respawnTicks > 0 && duelState.hasRemainingLives() && duelState.isAwaitingRespawn()) {
-                if (respawnTicks % 20 == 0) {
-                    TappaaUtil.setPlayerActionbarText(self, Component.literal("Respawning in: " + Math.round(respawnTicks / 20f) + " seconds"));
-                }
+                TappaaUtil.setPlayerActionbarText(
+                        self,
+                        Component.literal(
+                                String.format("Respawning in: %.1f seconds", respawnTicks / 20f)
+                        )
+                );
 
                 duelState.decrementRespawnTimer();
             }
@@ -41,7 +46,7 @@ public abstract class ServerPlayerMixin {
             }
 
             if (!duelState.isAwaitingRespawn()) {
-                TappaaUtil.setPlayerActionbarText(self, duel.get().getHudDisplayComponent(self, true));
+                TappaaUtil.setPlayerActionbarText(self, duel.get().getStatsDisplayComponent(self, true));
             }
 
 

@@ -2,6 +2,7 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.serial.SavedKits;
+import net.minecraft.advancements.predicates.ItemPredicate;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -22,12 +23,17 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import org.jspecify.annotations.NonNull;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+
 public class KitManager implements MenuProvider, Container {
 
 
 
     private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");
-    private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("kit").toString();
+    private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
 
     private final Component containerName;
     private Kit kit;
@@ -111,10 +117,28 @@ public class KitManager implements MenuProvider, Container {
     }
 
     public static void clearPlayerOfKitItems(ServerPlayer player) {
-        ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> {
+        Predicate<ItemStack> p = stack -> {
             CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-            return data.copyTag().getBoolean(KIT_CUSTOM_DATA_TAG).orElse(false);
-        }, Integer.MAX_VALUE, false);
+            Optional<Boolean> bool = data.copyTag().getBoolean(KIT_CUSTOM_DATA_TAG);
+            return bool.orElse(false);
+        };
+
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (p.test(stack)) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+        }
+    }
+
+    public List<ItemStack> getCopyOfItems(ServerPlayer player) {
+        List<ItemStack> items = new ArrayList<>();
+
+        for (ItemStack item : player.getInventory()) {
+            items.add(item.copy());
+        }
+
+        return items;
     }
 
 
@@ -157,11 +181,7 @@ public class KitManager implements MenuProvider, Container {
 
     public @NonNull ItemStack getItemForGiving(int slot) {
         ItemStack stack = getItem(slot).copy();
-        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        data.update(nbt -> {
-            nbt.putBoolean(KIT_CUSTOM_DATA_TAG, true);
-        });
-        stack.set(DataComponents.CUSTOM_DATA, data);
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(KIT_CUSTOM_DATA_TAG, true));
         return stack;
     }
 

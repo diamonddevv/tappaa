@@ -40,9 +40,12 @@ public class Duel {
     );
     public static final String TAG_DEATH_FIREWORK = Tappaa.id("duel_death_firework").toString();
 
+    public static final int PREGAME_TICKS = 5 * 20;
+
     private final UUID uuid;
     private final HashMap<UUID, PlayerDuelState> players;
-    private final KitManager kit;
+    private final KitManager kitManager;
+    private int pregameTimeTicks;
     private final int respawnTicks;
     private final MinecraftServer server;
     private final boolean useKit;
@@ -52,21 +55,22 @@ public class Duel {
     public Duel(UUID uuid, MinecraftServer server, KitManager kit, boolean useKit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
         this.uuid = uuid;
         this.server = server;
-        this.kit = kit;
+        this.kitManager = kit;
         this.useKit = useKit;
         this.players = new HashMap<>();
 
         this.respawnTicks = 5 * 20;
+        this.pregameTimeTicks = PREGAME_TICKS;
         this.timerTicks = 0;
 
         this.onEnd = onEnd;
         
         players.forEach(player -> {
-            this.players.put(player.getUUID(), new PlayerDuelState(player, 3));
+            this.players.put(player.getUUID(), new PlayerDuelState(this, player, 3));
             setDuelAttachment(player);
         });
 
-        onStartDuel();
+        onPregameStarts();
     }
 
     public UUID getUuid() {
@@ -127,8 +131,22 @@ public class Duel {
         }
     }
 
+    public boolean isInPregame() {
+        return this.pregameTimeTicks > 0;
+    }
+
     public void tick() {
         this.timerTicks++;
+
+        if (this.isInPregame()) {
+            this.pregameTimeTicks--;
+
+            tickPregame();
+
+            if (pregameTimeTicks <= 0) {
+                onPregameEnds();
+            }
+        }
     }
 
     public void endDuel() {
@@ -172,19 +190,50 @@ public class Duel {
         withState(player, state -> {
             player.setGameMode(state.getPreDuelGamemode());
             resetHealthAndHunger(player);
+
+            KitManager.clearPlayerOfKitItems(player);
+            List<ItemStack> stacks = kitManager.getCopyOfItems(player);
             KitManager.restorePlayerInventory(player, state.getPreDuelItems());
+            stacks.forEach(player.getInventory()::add);
+
             teleport(player, state.getPreDuelPosition());
         });
     }
 
-    public void onStartDuel() {
+    public void onPregameStarts() {
+        this.pregameTimeTicks = PREGAME_TICKS;
+
         forEachMemberOfDuel(player -> {
             player.setGameMode(GameType.SURVIVAL);
             player.removeAllEffects();
             resetHealthAndHunger(player);
             if (useKit) {
-                kit.copyToPlayer(player);
+                kitManager.copyToPlayer(player);
             }
+            player.sendSystemMessage(Component.literal("Starting duel!").withStyle(ChatFormatting.YELLOW));
+        });
+    }
+
+    public void onPregameEnds() {
+        forEachMemberOfDuel(player -> {
+            withState(player, state -> {
+                resetHealthAndHunger(player);
+                teleport(player, state.getPreDuelPosition());
+            });
+        });
+    }
+
+    public void tickPregame() {
+        forEachMemberOfDuel(player -> {
+            if (this.pregameTimeTicks % 20 == 0) {
+                TappaaUtil.playSoundToPlayer(player, SoundEvents.NOTE_BLOCK_BIT.value(), 1f, pregameTimeTicks <= 0 ? 1f : 0.5f);
+            }
+            TappaaUtil.setPlayerActionbarText(
+                    player,
+                    Component.literal(
+                            String.format("Starting in: %.1f seconds", this.pregameTimeTicks / 20f)
+                    )
+            );
         });
     }
 
@@ -234,12 +283,15 @@ public class Duel {
         player.removeAllEffects();
         teleport(player, duelState.getPreDuelPosition());
 
+        KitManager.clearPlayerOfKitItems(player);
+        List<ItemStack> stacks = kitManager.getCopyOfItems(player);
         if (useKit) {
-            kit.copyToPlayer(player);
+            kitManager.copyToPlayer(player);
         } else {
             // restore to pre-duel inventory as if it were the kit
             KitManager.restorePlayerInventory(player, duelState.getPreDuelItems());
         }
+        stacks.forEach(player.getInventory()::add);
 
         duelState.setAwaitingRespawn(false);
     }
@@ -317,7 +369,7 @@ public class Duel {
             component.append(Component.literal((i + 1) + ") ").withStyle(ChatFormatting.YELLOW));
             component.append(TappaaUtil.playerTextComponent(player, 16, ChatFormatting.GOLD));
             component.append(Component.literal(": ").withStyle(ChatFormatting.YELLOW));
-            component.append(getHudDisplayComponent(player, false));
+            component.append(getStatsDisplayComponent(player, false));
             component.append(Component.literal("\n"));
 
         }
@@ -325,27 +377,51 @@ public class Duel {
         return component;
     }
 
-    public Component getHudDisplayComponent(ServerPlayer player, boolean showLives) {
+    public Component getStatsDisplayComponent(ServerPlayer player, boolean showLives) {
         MutableComponent component = Component.empty();
+
+        Component seperator = Component.literal(" | ").withStyle(ChatFormatting.YELLOW);
 
         int kills = getDuelState(player).getKills();
         int deaths = getDuelState(player).getDeaths();
         int totemPops = getDuelState(player).getTotemPops();
 
-        component.append(Component.literal(String.valueOf(kills)).withStyle(ChatFormatting.AQUA));
-        component.append(Component.literal(" ⚔ | ").withStyle(ChatFormatting.YELLOW));
-        component.append(Component.literal(String.valueOf(deaths)).withStyle(ChatFormatting.AQUA));
-        component.append(Component.literal(" ☠ | ").withStyle(ChatFormatting.YELLOW));
-        component.append(Component.literal(String.valueOf(totemPops)).withStyle(ChatFormatting.AQUA));
-        component.append(Component.literal(" ").withStyle(ChatFormatting.YELLOW));
-        component.append(Component.object(new AtlasSprite(
+        MutableComponent killsComponent = Component.empty();
+        killsComponent.append(Component.literal(String.valueOf(kills)).withStyle(ChatFormatting.AQUA));
+        killsComponent.append(Component.literal(" ⚔").withStyle(ChatFormatting.YELLOW));
+        killsComponent.withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowText(
+                Component.literal("Killed other players " + kills + " times")
+        )));
+        component.append(killsComponent);
+
+
+        component.append(seperator);
+
+        MutableComponent deathsComponent = Component.empty();
+        deathsComponent.append(Component.literal(String.valueOf(deaths)).withStyle(ChatFormatting.AQUA));
+        deathsComponent.append(Component.literal(" ☠").withStyle(ChatFormatting.YELLOW));
+        deathsComponent.withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowText(
+                Component.literal("Died " + deaths + " times")
+        )));
+        component.append(deathsComponent);
+
+        component.append(seperator);
+
+        MutableComponent totemPopsComponent = Component.empty();
+        totemPopsComponent.append(Component.literal(String.valueOf(totemPops)).withStyle(ChatFormatting.AQUA));
+        totemPopsComponent.append(Component.literal(" ").withStyle(ChatFormatting.YELLOW));
+        totemPopsComponent.append(Component.object(new AtlasSprite(
                 Identifier.fromNamespaceAndPath("minecraft", "items"),
                 Identifier.fromNamespaceAndPath("minecraft", "item/totem_of_undying"))
         ));
+        totemPopsComponent.withStyle(Style.EMPTY.withHoverEvent(new HoverEvent.ShowText(
+                Component.literal("Popped other players totems " + totemPops + " times")
+        )));
+        component.append(totemPopsComponent);
 
         if (showLives) {
             int lives = getDuelState(player).remainingLives();
-            component.append(Component.literal(" | ").withStyle(ChatFormatting.YELLOW));
+            component.append(seperator);
             component.append(Component.literal(String.valueOf(lives)).withStyle(ChatFormatting.AQUA));
             component.append(Component.literal(" ❤").withStyle(ChatFormatting.YELLOW));
         }

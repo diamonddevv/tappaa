@@ -66,6 +66,7 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_BAD_SLOT = new SimpleCommandExceptionType(Component.literal("You can't edit into that slot!"));
     private static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE = new SimpleCommandExceptionType(Component.literal("You must specify at least one player!"));
+    private static final SimpleCommandExceptionType ERROR_KIT_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That kit does not exist!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -122,12 +123,14 @@ public class TappaaCommand {
                         literal("duel").then(
                                 literal("request").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::duelDirect).then(
-                                                argument("use_kit", BoolArgumentType.bool()).executes(TappaaCommand::duelDirect)
+                                                argument("kit", IdentifierArgument.id())
+                                                        .suggests(new AvailableKitsSuggestionProvider())
+                                                        .executes(TappaaCommand::duelDirect)
                                         )
                                 )
                         ).then(
-                                literal("group").executes(TappaaCommand::duelGroup).then(
-                                        argument("use_kit", BoolArgumentType.bool()).executes(TappaaCommand::duelGroup)
+                                literal("group").executes(c -> TappaaCommand.duelGroup(c, true)).then(
+                                        literal("nokit").executes(c -> TappaaCommand.duelGroup(c, false))
                                 )
                         ).then(
                                 literal("end").executes(TappaaCommand::endDuel)
@@ -468,14 +471,19 @@ public class TappaaCommand {
         }
 
         // set up duel
-        boolean useKit;
+        Identifier kitId;
         try {
-            useKit = BoolArgumentType.getBool(ctx, "use_kit");
+            kitId = IdentifierArgument.getId(ctx, "kit");
         } catch (IllegalArgumentException iae) {
-            useKit = true;
+            kitId = null;
         }
 
-        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(src, useKit);
+        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(ctx.getSource().getServer(), src, kitId);
+
+        if (duelGroup == null) {
+            playBadSound(src);
+            throw ERROR_KIT_DOESNT_EXIST.create();
+        }
 
         duelGroup.invite(target);
         target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
@@ -486,7 +494,89 @@ public class TappaaCommand {
         return 1;
     }
 
-    private static int duelGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int duelDirectMultiple(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        // todo make this usable and replace above, need to await all requests answered (probably need to add request timeout)
+
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_GROUP.create();
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
+        if (duel.isPresent()) {
+            playBadSound(src);
+            throw ERROR_ALREADY_IN_DUEL.create();
+        }
+
+        // set up duel
+        Identifier kitId;
+        try {
+            kitId = IdentifierArgument.getId(ctx, "kit");
+        } catch (IllegalArgumentException iae) {
+            kitId = null;
+        }
+
+        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(ctx.getSource().getServer(), src, kitId);
+
+        if (duelGroup == null) {
+            playBadSound(src);
+            throw ERROR_KIT_DOESNT_EXIST.create();
+        }
+
+        List<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "players").stream().toList();
+
+        if (targets.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE.create();
+        }
+
+        boolean onlyOne = targets.size() == 1;
+
+        int failures = 0;
+        for (ServerPlayer target : targets) {
+            Optional<Group> targetGroup = GroupManager.INSTANCE.getGroup(target);
+            if (targetGroup.isPresent()) {
+                failures += 1;
+                if (onlyOne) {
+                    playBadSound(src);
+                    throw ERROR_OTHER_IN_GROUP.create();
+                }
+                continue;
+            }
+
+            Optional<Duel> targetDuel = DuelManager.INSTANCE.getDuel(target);
+            if (targetDuel.isPresent()) {
+                failures += 1;
+                if (onlyOne) {
+                    playBadSound(src);
+                    throw ERROR_OTHER_IN_DUEL.create();
+                }
+                continue;
+            }
+
+            duelGroup.invite(target);
+            target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
+        }
+
+
+        if (failures == targets.size()) {
+            playBadSound(src);
+            src.sendSystemMessage(Component.literal("Failed to send all requests.").withStyle(ChatFormatting.DARK_RED));
+        } else if (targets.size() == 1) {
+            playYaySound(src);
+            src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(targets.getFirst()));
+        } else {
+            playYaySound(src);
+            src.sendSystemMessage(Component.literal("Sent " + (targets.size() - failures) + " requests.").withStyle(ChatFormatting.GREEN));
+        }
+
+        return 1;
+    }
+
+    private static int duelGroup(CommandContext<CommandSourceStack> ctx, boolean useKit) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
@@ -510,18 +600,10 @@ public class TappaaCommand {
             throw ERROR_NOT_ENOUGH_PLAYERS.create();
         }
 
-        boolean useKit;
-        try {
-            useKit = BoolArgumentType.getBool(ctx, "use_kit");
-        } catch (IllegalArgumentException _) {
-            useKit = true;
-        }
-
         Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), false, useKit);
 
         if (duel.isPresent()) { // this should always be true, really
             for (ServerPlayer member : duel.get().getPlayers()) {
-                member.sendSystemMessage(Component.literal("Started duel!").withStyle(ChatFormatting.GREEN));
                 playDuelSound(member);
             }
         }

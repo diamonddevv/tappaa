@@ -7,6 +7,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 public class PlayerDuelState {
+    private final Duel duel;
     private final ServerPlayer player;
 
     private final GameType preDuelGamemode;
@@ -22,7 +23,8 @@ public class PlayerDuelState {
     private boolean awaitingRespawn;
     private int lives;
 
-    public PlayerDuelState(ServerPlayer player, int initialLives) {
+    public PlayerDuelState(Duel duel, ServerPlayer player, int initialLives) {
+        this.duel = duel;
         this.player = player;
 
         this.preDuelGamemode = player.gameMode();

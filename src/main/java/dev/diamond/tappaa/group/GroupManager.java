@@ -3,9 +3,15 @@ package dev.diamond.tappaa.group;
 import dev.diamond.tappaa.TappaaCommand;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.Duel;
+import dev.diamond.tappaa.duel.Kit;
+import dev.diamond.tappaa.serial.SavedKits;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -22,8 +28,17 @@ public class GroupManager {
         return createGroupInternal(owner, false, false);
     }
 
-    public Group createQuickDuelGroup(ServerPlayer owner, boolean usesKit) {
-        return createGroupInternal(owner, true, usesKit);
+    public Group createQuickDuelGroup(MinecraftServer server, ServerPlayer owner, @Nullable Identifier kitId) {
+        Group group = createGroupInternal(owner, true, kitId != null);
+        if (kitId != null) {
+            Optional<HashMap<Integer, ItemStack>> map = SavedKits.getSavedKits(server).getMappedItemsFromId(kitId);
+            if (map.isPresent()) {
+                group.getKitManager().setKit(Kit.fromMap(map.get()));
+            } else {
+                return null;
+            }
+        }
+        return group;
     }
 
     private Group createGroupInternal(ServerPlayer owner, boolean quickDuel, boolean quickDuelUsesKit) {
