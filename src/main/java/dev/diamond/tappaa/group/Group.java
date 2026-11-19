@@ -4,7 +4,7 @@ import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
-import dev.diamond.tappaa.duel.Kit;
+import dev.diamond.tappaa.duel.KitManager;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.ChatFormatting;
@@ -33,7 +33,7 @@ public class Group {
 
     private final UUID uuid;
     private final MinecraftServer server;
-    private final Kit kit;
+    private final KitManager kit;
     private UUID duelUuid;
     private final UUID ownerUuid;
     private final Collection<UUID> players;
@@ -54,7 +54,7 @@ public class Group {
         this.quickDuelGroup = quickDuelGroup;
         this.quickDuelUseKit = quickDuelUseKit;
 
-        this.kit = new Kit();
+        this.kit = new KitManager();
 
         addToGroup(owner);
     }
@@ -71,7 +71,7 @@ public class Group {
         return server.getPlayerList().getPlayer(ownerUuid);
     }
 
-    public Kit getKit() {
+    public KitManager getKitManager() {
         return kit;
     }
 

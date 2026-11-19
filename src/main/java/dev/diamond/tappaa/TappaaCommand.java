@@ -6,18 +6,17 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import dev.diamond.tappaa.duel.Duel;
-import dev.diamond.tappaa.duel.DuelManager;
-import dev.diamond.tappaa.duel.Kit;
-import dev.diamond.tappaa.duel.TestInventoryProvider;
+import dev.diamond.tappaa.duel.*;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
+import dev.diamond.tappaa.serial.SavedKits;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.SlotArgument;
 import net.minecraft.commands.arguments.UuidArgument;
 import net.minecraft.commands.arguments.item.ItemArgument;
@@ -26,15 +25,16 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -64,6 +64,8 @@ public class TappaaCommand {
     private static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_NO_PERMISSION = new SimpleCommandExceptionType(Component.literal("You can't edit the kit using the UI, you lack the permission."));
     private static final SimpleCommandExceptionType ERROR_CANT_INVITE_NOW = new SimpleCommandExceptionType(Component.literal("You can't invite players to your group right now!"));
     private static final SimpleCommandExceptionType ERROR_BAD_SLOT = new SimpleCommandExceptionType(Component.literal("You can't edit into that slot!"));
+    private static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));
+    private static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE = new SimpleCommandExceptionType(Component.literal("You must specify at least one player!"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
@@ -75,7 +77,7 @@ public class TappaaCommand {
                                 literal("disband").executes(TappaaCommand::disbandGroup)
                         ).then(
                                 literal("invite").then(
-                                        argument("player", EntityArgument.player()).executes(TappaaCommand::inviteToGroup)
+                                        argument("players", EntityArgument.players()).executes(TappaaCommand::inviteToGroup)
                                 )
                         ).then(
                                 literal("leave").executes(TappaaCommand::leaveGroup)
@@ -147,6 +149,22 @@ public class TappaaCommand {
                                 )
                         ).then(
                                 literal("reset").executes(TappaaCommand::kitReset)
+                        ).then(
+                                literal("save").then(
+                                        argument("id", IdentifierArgument.id()).executes(TappaaCommand::kitSave)
+                                )
+                        ).then(
+                                literal("load").then(
+                                        argument("id", IdentifierArgument.id())
+                                                .suggests(new AvailableKitsSuggestionProvider())
+                                                .executes(TappaaCommand::kitLoad)
+                                )
+                        ).then(
+                                literal("delete").then(
+                                        argument("id", IdentifierArgument.id())
+                                                .suggests(new AvailableKitsSuggestionProvider())
+                                                .executes(TappaaCommand::kitDelete)
+                                )
                         )
                 )
         );
@@ -221,29 +239,61 @@ public class TappaaCommand {
             throw ERROR_CANT_INVITE_NOW.create();
         }
 
-        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+        List<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "players").stream().toList();
 
-        if (src == target) {
+        if (targets.isEmpty()) {
             playBadSound(src);
-            throw ERROR_CANT_INVITE_SELF.create();
+            throw ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE.create();
         }
 
-        if (group.get().hasMember(target)) {
-            playBadSound(src);
-            throw ERROR_PLAYER_ALREADY_IN_GROUP.create();
+        boolean onlyOne = targets.size() == 1;
+
+        int failures = 0;
+        for (ServerPlayer target : targets) {
+            if (src == target) {
+                failures += 1;
+                if (onlyOne) {
+                    playBadSound(src);
+                    throw ERROR_CANT_INVITE_SELF.create();
+                }
+                continue;
+            }
+
+            if (group.get().hasMember(target)) {
+                failures += 1;
+                if (onlyOne) {
+                    playBadSound(src);
+                    throw ERROR_PLAYER_ALREADY_IN_GROUP.create();
+                }
+                continue;
+            }
+
+            if (DuelManager.INSTANCE.getDuel(target).isPresent()) {
+                failures += 1;
+                if (onlyOne) {
+                    playBadSound(src);
+                    throw ERROR_CANT_INVITE_NOW.create();
+                }
+                continue;
+            }
+
+            group.get().invite(target);
+            target.sendSystemMessage(Group.getIncomingInviteMessage(group.get()));
+
+
+            group.get().broadcastMessage(Group.getSentInviteMessageGroup(group.get(), target), false);
         }
 
-        if (DuelManager.INSTANCE.getDuel(target).isPresent()) {
+        if (failures == targets.size()) {
             playBadSound(src);
-            throw ERROR_OTHER_IN_DUEL.create();
+            src.sendSystemMessage(Component.literal("Failed to send all requests.").withStyle(ChatFormatting.DARK_RED));
+        } else if (targets.size() == 1) {
+            playYaySound(src);
+            src.sendSystemMessage(Group.getSentInviteMessageOwner(targets.getFirst()));
+        } else {
+            playYaySound(src);
+            src.sendSystemMessage(Component.literal("Sent " + (targets.size() - failures) + " requests.").withStyle(ChatFormatting.GREEN));
         }
-
-        group.get().invite(target);
-        target.sendSystemMessage(Group.getIncomingInviteMessage(group.get()));
-
-        src.sendSystemMessage(Group.getSentInviteMessageOwner(target));
-        playYaySound(src);
-        group.get().broadcastMessage(Group.getSentInviteMessageGroup(group.get(), target), false);
 
         return 1;
     }
@@ -455,6 +505,11 @@ public class TappaaCommand {
             throw ERROR_ALREADY_IN_DUEL.create();
         }
 
+        if (group.get().getMembers().size() <= 1) {
+            playBadSound(src);
+            throw ERROR_NOT_ENOUGH_PLAYERS.create();
+        }
+
         boolean useKit;
         try {
             useKit = BoolArgumentType.getBool(ctx, "use_kit");
@@ -528,7 +583,7 @@ public class TappaaCommand {
             throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
         }
 
-        group.get().getKit().openContainerToPlayer(src);
+        group.get().getKitManager().openContainerToPlayer(src);
 
         return 1;
     }
@@ -553,7 +608,7 @@ public class TappaaCommand {
         }
 
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
-        group.get().getKit().fromPlayerInventory(target);
+        group.get().getKitManager().fromPlayerInventory(target);
 
         playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -603,13 +658,13 @@ public class TappaaCommand {
             throw ERROR_BAD_SLOT.create();
         }
 
-        group.get().getKit().setItem(realSlot, stack);
+        group.get().getKitManager().setItem(realSlot, stack);
         
         playYaySound(src);
         src.sendSystemMessage(Component.empty()
                 .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))
                 .append(TappaaUtil.itemStackComponent(stack)) // item
-                .append(Component.literal(" to kit").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(" to kit.").withStyle(ChatFormatting.GREEN))
         );
 
         return 1;
@@ -635,16 +690,135 @@ public class TappaaCommand {
         }
 
 
-        group.get().getKit().resetToDefault();
+        group.get().getKitManager().resetKitToDefault();
 
         playYaySound(src);
         src.sendSystemMessage(Component.empty()
-                .append(Component.literal("Reset kit. ").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("Reset kit.").withStyle(ChatFormatting.GREEN))
         );
 
         return 1;
     }
 
+    private static int kitSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+
+        SavedKits.getSavedKits(ctx.getSource().getServer())
+                .saveKit(id, group.get().getKitManager().getKit().mapped(), true);
+
+
+        playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Saved kit as [").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("].").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+    private static int kitLoad(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+
+        SavedKits.getSavedKits(ctx.getSource().getServer()).getMappedItemsFromId(id).ifPresentOrElse(map -> {
+            group.get().getKitManager().setKit(Kit.fromMap(map));
+
+            playYaySound(src);
+            src.sendSystemMessage(Component.empty()
+                    .append(Component.literal("Loaded kit [").withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("].").withStyle(ChatFormatting.GREEN))
+            );
+        }, () -> {
+            playBadSound(src);
+            src.sendSystemMessage(Component.empty()
+                    .append(Component.literal("No kit [").withStyle(ChatFormatting.DARK_RED))
+                    .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("] exists!").withStyle(ChatFormatting.DARK_RED))
+            );
+        });
+
+        return 1;
+    }
+
+    private static int kitDelete(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+
+        boolean success = SavedKits.getSavedKits(ctx.getSource().getServer()).remove(id);
+
+        if (success) {
+            playYaySound(src);
+            src.sendSystemMessage(Component.empty()
+                    .append(Component.literal("Deleted kit [").withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("].").withStyle(ChatFormatting.GREEN))
+            );
+        } else {
+            playBadSound(src);
+            src.sendSystemMessage(Component.empty()
+                    .append(Component.literal("No such kit [").withStyle(ChatFormatting.DARK_RED))
+                    .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
+                    .append(Component.literal("] exists to delete!").withStyle(ChatFormatting.DARK_RED))
+            );
+        }
+
+
+        return 1;
+    }
 
 
     // DEV

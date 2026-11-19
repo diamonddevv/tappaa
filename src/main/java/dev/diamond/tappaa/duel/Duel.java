@@ -42,14 +42,14 @@ public class Duel {
 
     private final UUID uuid;
     private final HashMap<UUID, PlayerDuelState> players;
-    private final Kit kit;
+    private final KitManager kit;
     private final int respawnTicks;
     private final MinecraftServer server;
     private final boolean useKit;
     private int timerTicks;
     private final Consumer<Duel> onEnd;
 
-    public Duel(UUID uuid, MinecraftServer server, Kit kit, boolean useKit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
+    public Duel(UUID uuid, MinecraftServer server, KitManager kit, boolean useKit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
         this.uuid = uuid;
         this.server = server;
         this.kit = kit;
@@ -172,7 +172,7 @@ public class Duel {
         withState(player, state -> {
             player.setGameMode(state.getPreDuelGamemode());
             resetHealthAndHunger(player);
-            Kit.restorePlayerInventory(player, state.getPreDuelItems());
+            KitManager.restorePlayerInventory(player, state.getPreDuelItems());
             teleport(player, state.getPreDuelPosition());
         });
     }
@@ -238,7 +238,7 @@ public class Duel {
             kit.copyToPlayer(player);
         } else {
             // restore to pre-duel inventory as if it were the kit
-            Kit.restorePlayerInventory(player, duelState.getPreDuelItems());
+            KitManager.restorePlayerInventory(player, duelState.getPreDuelItems());
         }
 
         duelState.setAwaitingRespawn(false);

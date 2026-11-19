@@ -5,6 +5,7 @@ import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.BlockEvents;
 import net.minecraft.ChatFormatting;
@@ -43,7 +44,7 @@ public class DuelManager {
     public Optional<Duel> createDuelFromGroup(Group group, boolean disbandGroupAfter, boolean useKit) {
         if (!group.hasValidActiveDuel()) {
             UUID uuid = UUID.randomUUID();
-            Duel duel = new Duel(uuid, group.getServer(), group.getKit(), useKit, group.getMembers(), disbandGroupAfter ? d -> {
+            Duel duel = new Duel(uuid, group.getServer(), group.getKitManager(), useKit, group.getMembers(), disbandGroupAfter ? d -> {
                 GroupManager.INSTANCE.disbandGroup(group, true);
             } : d -> {});
             group.setDuelUuid(uuid);
@@ -66,6 +67,8 @@ public class DuelManager {
     }
 
     public static void registerDuelingEvents() {
+        ServerLifecycleEvents.SERVER_STARTED.register(DuelManager::serverStarted);
+        ServerLifecycleEvents.SERVER_STOPPING.register(DuelManager::serverStopping);
         ServerLivingEntityEvents.ALLOW_DAMAGE.register(DuelManager::canEntityTakeDamage);
         ServerLivingEntityEvents.ALLOW_DEATH.register(DuelManager::allowEntityDeath);
         ServerPlayerEvents.JOIN.register(DuelManager::playerJoinsServer);
@@ -73,6 +76,19 @@ public class DuelManager {
         ServerTickEvents.START_SERVER_TICK.register(DuelManager::serverTick);
         BlockEvents.USE_ITEM_ON.register(DuelManager::useBlockWithItem);
         BlockEvents.USE_WITHOUT_ITEM.register(DuelManager::useBlockWithoutItem);
+    }
+
+    private static void serverStarted(MinecraftServer minecraftServer) {
+        // immediately add the default kit
+        KitManager.saveDefaultKit(minecraftServer);
+    }
+
+    private static void serverStopping(MinecraftServer minecraftServer) {
+
+        for (Duel duel : DuelManager.INSTANCE.duels.values()) {
+            duel.forEachMemberOfDuel(duel::restorePlayerToPreDuel);
+        }
+
     }
 
     private static boolean canEntityTakeDamage(LivingEntity livingEntity, DamageSource damageSource, float damage) {
