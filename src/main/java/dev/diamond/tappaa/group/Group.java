@@ -41,6 +41,8 @@ public class Group {
     private final boolean quickDuelGroup;
     private final boolean quickDuelUseKit;
 
+    private static final int REQUEST_TIMEOUT_DURATION = 30 * 20;
+
     public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup, boolean quickDuelUseKit) {
         this.uuid = uuid;
         this.ownerUuid = owner.getUUID();
@@ -157,7 +159,11 @@ public class Group {
     }
 
     public void rescindInvite(ServerPlayer player) {
-        invites.remove(player.getUUID());
+        this.rescindInvite(player.getUUID());
+    }
+
+    public void rescindInvite(UUID playerUuid) {
+        invites.remove(playerUuid);
     }
 
     public boolean isPlayerInvited(ServerPlayer player) {

@@ -118,14 +118,22 @@ public class TappaaCommand {
                                 literal("forceduel").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::devForceDuelDirect)
                                 )
+                        ).then(
+                                literal("test_dueldirectmulti").then(
+                                        argument("players", EntityArgument.players()).executes(TappaaCommand::duelDirectMultiple).then(
+                                                argument("kit", IdentifierArgument.id())
+                                                        .suggests(new AvailableKitsSuggestionProvider())
+                                                        .executes(TappaaCommand::duelDirectMultiple)
+                                        )
+                                )
                         )
                 ).then(
                         literal("duel").then(
                                 literal("request").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::duelDirect).then(
                                                 argument("kit", IdentifierArgument.id())
-                                                        .suggests(new AvailableKitsSuggestionProvider())
-                                                        .executes(TappaaCommand::duelDirect)
+                                                .suggests(new AvailableKitsSuggestionProvider())
+                                                .executes(TappaaCommand::duelDirect)
                                         )
                                 )
                         ).then(
@@ -483,15 +491,16 @@ public class TappaaCommand {
         if (duelGroup == null) {
             playBadSound(src);
             throw ERROR_KIT_DOESNT_EXIST.create();
+        } else {
+
+            duelGroup.invite(target);
+            target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
+
+            playYaySound(src);
+            src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(target));
+
+            return 1;
         }
-
-        duelGroup.invite(target);
-        target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
-
-        playYaySound(src);
-        src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(target));
-
-        return 1;
     }
 
     private static int duelDirectMultiple(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
