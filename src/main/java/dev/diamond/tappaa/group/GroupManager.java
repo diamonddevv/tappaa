@@ -85,6 +85,7 @@ public class GroupManager {
         this.groups.remove(group.getGroupUuid());
     }
 
+
     public static void onPlayerJoinServer(ServerPlayer player) {
         GroupManager.INSTANCE.getGroup(player).ifPresent(group -> group.removeFromGroup(player));
     }

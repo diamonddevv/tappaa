@@ -251,14 +251,14 @@ public class Group {
         return Component.empty()
                 .append(Component.literal("You have been kicked from ").withStyle(ChatFormatting.DARK_RED))
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal("'s party.").withStyle(ChatFormatting.DARK_RED))
+                .append(Component.literal("'s group.").withStyle(ChatFormatting.DARK_RED))
                 ;
     }
 
     public static Component getKickedBroadcastMessage(ServerPlayer target) {
         return Component.empty()
                 .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
-                .append(Component.literal(" was kicked from the party.").withStyle(ChatFormatting.DARK_RED))
+                .append(Component.literal(" was kicked from the group.").withStyle(ChatFormatting.DARK_RED))
                 ;
     }
 }

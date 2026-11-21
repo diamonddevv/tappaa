@@ -406,6 +406,7 @@ public class TappaaCommand {
         group.get().forEachMember(TappaaCommand::playBadSound, true);
 
         group.get().rescindInvite(src);
+        group.get().onRespondInvite();
 
         return 1;
     }

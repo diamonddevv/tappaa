@@ -32,7 +32,7 @@ public class DuelStats extends SavedData {
         this.map = new HashMap<>();
     }
     private DuelStats(Map<UUID, PlayerDuelStats> map) {
-        this.map = map;
+        this.map = new HashMap<>(map);
     }
 
     private Map<UUID, PlayerDuelStats> getMap() {
