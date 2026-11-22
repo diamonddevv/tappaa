@@ -305,15 +305,15 @@ public class Duel {
         player.removeAllEffects();
         teleport(player, duelState.getPreDuelPosition());
 
-        KitManager.clearPlayerOfKitItems(player);
-        List<ItemStack> stacks = kitManager.getCopyOfItems(player);
+        KitManager.clearPlayerOfKitItems(player); // remove items that were part of the kit..
+        List<ItemStack> stacks = kitManager.getCopyOfItems(player); // copy all the items the player has left..
         if (useKit) {
-            kitManager.copyToPlayer(player);
+            kitManager.copyToPlayer(player); // copy all the items that were in the kit, including empty slots, to the player
         } else {
             // restore to pre-duel inventory as if it were the kit
             KitManager.restorePlayerInventory(player, duelState.getPreDuelItems());
         }
-        stacks.forEach(player.getInventory()::add);
+        stacks.forEach(player.getInventory()::add); // give back the remaining items, which are items that they picked up during the duel.
 
         duelState.setAwaitingRespawn(false);
     }

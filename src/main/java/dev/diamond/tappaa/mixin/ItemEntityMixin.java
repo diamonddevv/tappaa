@@ -29,12 +29,15 @@ public abstract class ItemEntityMixin extends Entity {
     @Inject(method = "playerTouch", at = @At("HEAD"), cancellable = true)
     private void tappaa$preventItemPickup(Player player, CallbackInfo ci) {
         if (!this.level().isClientSide()) {
-            if (getOwner() instanceof ServerPlayer owner) {
-                Optional<Duel> ownerDuel = DuelManager.INSTANCE.getDuel(owner);
-                if (ownerDuel.isPresent()) {
-                    if (owner != player) ci.cancel();
+            if (player instanceof ServerPlayer serverPlayer) {
+                Optional<Duel> duel = DuelManager.INSTANCE.getDuel(serverPlayer);
+                if (duel.isPresent()) { // players in a duel can only pick up their OWN items (or items with no owner - mined blocks..)
+                    Entity owner = getOwner();
+                    if (owner != null && owner != player) ci.cancel();
                 }
             }
         }
     }
+
+
 }

@@ -12,6 +12,9 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 import java.util.*;
 
 public class DuelStats extends SavedData {
+    /*
+     * There's a good chance ill replace this with a proper database.
+     */
 
     private static final Codec<DuelStats> CODEC = Codec.unboundedMap(
             UUIDUtil.STRING_CODEC, PlayerDuelStats.CODEC

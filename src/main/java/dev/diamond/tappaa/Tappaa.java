@@ -22,9 +22,7 @@ public class Tappaa implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register(TappaaCommand::register);
 
 
-		ServerPlayerEvents.JOIN.register(GroupManager::onPlayerJoinServer);
-		ServerPlayerEvents.LEAVE.register(GroupManager::onPlayerLeaveServer);
-
+		GroupManager.registerGroupEvents();
 		DuelManager.registerDuelingEvents();
 
         LOGGER.info("{} (done loading)", pickThingToSayOnLoad(System.nanoTime()));

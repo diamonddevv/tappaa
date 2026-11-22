@@ -2,7 +2,6 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.serial.SavedKits;
-import net.minecraft.advancements.predicates.ItemPredicate;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -30,10 +29,21 @@ import java.util.function.Predicate;
 
 public class KitManager implements MenuProvider, Container {
 
+    /*
+    im really tempted to make this a client-only feature.
+    (that meaning, you need to have the mod on the client to use it.)
 
+    the logistics of making sure the player effectively putting items in but also keeping
+    them themselves, and then not actually giving them any items that they take out
+    is difficult and im not sure how to tackle the problem. ill try, but regardless,
+    im going to make this a much better experience if the mod is installed on the client
+    (custom ui menu... etc.)
+
+    this needs alot of work anyway, the slots matching could be well improved..
+     */
 
     private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");
-    private static final String KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
+    private static final String IS_OF_KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
 
     private final Component containerName;
     private Kit kit;
@@ -119,7 +129,7 @@ public class KitManager implements MenuProvider, Container {
     public static void clearPlayerOfKitItems(ServerPlayer player) {
         Predicate<ItemStack> p = stack -> {
             CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-            Optional<Boolean> bool = data.copyTag().getBoolean(KIT_CUSTOM_DATA_TAG);
+            Optional<Boolean> bool = data.copyTag().getBoolean(IS_OF_KIT_CUSTOM_DATA_TAG);
             return bool.orElse(false);
         };
 
@@ -181,7 +191,7 @@ public class KitManager implements MenuProvider, Container {
 
     public @NonNull ItemStack getItemForGiving(int slot) {
         ItemStack stack = getItem(slot).copy();
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(KIT_CUSTOM_DATA_TAG, true));
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
         return stack;
     }
 

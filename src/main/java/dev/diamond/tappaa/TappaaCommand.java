@@ -378,7 +378,6 @@ public class TappaaCommand {
 
         group.get().addToGroup(src);
         group.get().rescindInvite(src);
-        group.get().onRespondInvite();
 
         return 1;
     }
@@ -402,11 +401,13 @@ public class TappaaCommand {
         src.sendSystemMessage(Group.getDeclinedMessage(group.get()));
         playBadSound(src);
 
-        group.get().broadcastMessage(Group.getRejectedMessage(src), true);
-        group.get().forEachMember(TappaaCommand::playBadSound, true);
+        Component msg = Group.getRejectedMessage(src);
+        group.get().forEachMember(member -> {
+            member.sendSystemMessage(msg);
+            playBadSound(member);
+        }, true);
 
         group.get().rescindInvite(src);
-        group.get().onRespondInvite();
 
         return 1;
     }

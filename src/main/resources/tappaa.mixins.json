@@ -3,7 +3,6 @@
     "package": "dev.diamond.tappaa.mixin",
     "compatibilityLevel": "JAVA_25",
     "mixins": [
-        "EntityEquipmentAccessor",
         "FireworkRocketEntityAccessor",
         "FireworkRocketEntityMixin",
         "InventoryAccessor",

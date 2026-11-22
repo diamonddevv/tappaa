@@ -5,6 +5,9 @@ import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.Kit;
 import dev.diamond.tappaa.serial.SavedKits;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -85,6 +88,15 @@ public class GroupManager {
         this.groups.remove(group.getGroupUuid());
     }
 
+    public static void registerGroupEvents() {
+        ServerPlayerEvents.JOIN.register(GroupManager::onPlayerJoinServer);
+        ServerPlayerEvents.LEAVE.register(GroupManager::onPlayerLeaveServer);
+        ServerTickEvents.START_SERVER_TICK.register(GroupManager::onServerTicks);
+    }
+
+    private static void onServerTicks(MinecraftServer server) {
+        GroupManager.INSTANCE.groups.values().forEach(Group::tick);
+    }
 
     public static void onPlayerJoinServer(ServerPlayer player) {
         GroupManager.INSTANCE.getGroup(player).ifPresent(group -> group.removeFromGroup(player));

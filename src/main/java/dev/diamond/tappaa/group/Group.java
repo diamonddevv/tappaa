@@ -16,10 +16,7 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 
 public class Group {
@@ -34,14 +31,13 @@ public class Group {
     private final UUID uuid;
     private final MinecraftServer server;
     private final KitManager kit;
+    private final boolean invitesExpire;
     private UUID duelUuid;
     private final UUID ownerUuid;
     private final Collection<UUID> players;
-    private final Collection<UUID> invites;
+    private final HashMap<UUID, GroupRequest> invites;
     private final boolean quickDuelGroup;
     private final boolean quickDuelUseKit;
-
-    private static final int REQUEST_TIMEOUT_DURATION = 30 * 20;
 
     public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup, boolean quickDuelUseKit) {
         this.uuid = uuid;
@@ -50,8 +46,9 @@ public class Group {
         this.server = owner.level().getServer();
 
         this.players = new ArrayList<>();
-        this.invites = new ArrayList<>();
+        this.invites = new HashMap<>();
         this.duelUuid = null;
+        this.invitesExpire = true;
 
         this.quickDuelGroup = quickDuelGroup;
         this.quickDuelUseKit = quickDuelUseKit;
@@ -143,7 +140,7 @@ public class Group {
     }
 
     public void invite(ServerPlayer player) {
-        invites.add(player.getUUID());
+        invites.put(player.getUUID(), new GroupRequest(this, player.getUUID(), GroupRequest.REQUEST_TIMEOUT_DURATION));
     }
 
     public void onRespondInvite() {
@@ -158,16 +155,21 @@ public class Group {
         }
     }
 
+    public void tick() {
+        this.invites.values().forEach(GroupRequest::tick);
+    }
+
     public void rescindInvite(ServerPlayer player) {
         this.rescindInvite(player.getUUID());
     }
 
     public void rescindInvite(UUID playerUuid) {
         invites.remove(playerUuid);
+        this.onRespondInvite();
     }
 
     public boolean isPlayerInvited(ServerPlayer player) {
-        return invites.contains(player.getUUID());
+        return invites.containsKey(player.getUUID());
     }
 
 
@@ -195,7 +197,10 @@ public class Group {
 
         return Component.empty()
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal(" has invited you to join their duel group.\n").withColor(TextColor.GREEN))
+                .append(Component.literal(" has invited you to join their duel group.").withColor(TextColor.GREEN))
+                .append(Component.literal(
+                        (group.invitesExpire ? "[Invite expires in " + ((int) Math.floor(GroupRequest.REQUEST_TIMEOUT_DURATION / 20f)) + "s]" : "") + "\n"
+                ).withStyle(ChatFormatting.ITALIC, ChatFormatting.GRAY))
                 .append(Component.literal("[ACCEPT]")
                         .withColor(TextColor.LIGHT_PURPLE)
                         .withStyle(ChatFormatting.UNDERLINE)
