@@ -44,6 +44,8 @@ import static net.minecraft.commands.Commands.literal;
 
 public class TappaaCommand {
 
+    // ill probably seperate these into multiple commands, this file is getting huge..
+
     private static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
     private static final SimpleCommandExceptionType ERROR_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You are not in a duel!"));
