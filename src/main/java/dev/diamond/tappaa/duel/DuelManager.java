@@ -27,15 +27,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DuelManager {
 
-    private final HashMap<UUID, Duel> duels;
+    private final ConcurrentHashMap<UUID, Duel> duels;
     protected DuelManager() {
-        this.duels = new HashMap<>();
+        this.duels = new ConcurrentHashMap<>();
     }
 
     public static final DuelManager INSTANCE = new DuelManager();

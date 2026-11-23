@@ -2,7 +2,6 @@ package dev.diamond.tappaa.duel;
 
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
-import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.mixin.FireworkRocketEntityAccessor;
 import dev.diamond.tappaa.serial.DuelStats;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -435,63 +434,26 @@ public class Duel {
     }
 
 
-    public static Component getSentQuickDuelInviteMessage(ServerPlayer target) {
-        return Component.empty()
-                .append(Component.literal("Invited ").withStyle(ChatFormatting.GREEN))
-                .append(TappaaUtil.playerTextComponent(target, ChatFormatting.GOLD))
-                .append(Component.literal(" to duel.").withStyle(ChatFormatting.GREEN))
-                ;
-    }
-
-    public static Component getIncomingQuickDuelInviteMessage(Group group) {
-
-        String acceptCommand = "tappaa group accept " + group.getGroupUuid();
-        String declineCommand = "tappaa group decline " + group.getGroupUuid();
-
-        return Component.empty()
-                .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal(" has invited you to a duel.\n").withColor(TextColor.GREEN))
-                .append(Component.literal("[ACCEPT]")
-                        .withColor(TextColor.LIGHT_PURPLE)
-                        .withStyle(ChatFormatting.UNDERLINE)
-                        .withStyle(ChatFormatting.BOLD)
-                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(acceptCommand))))
-                .append(" ")
-                .append(Component.literal("[DECLINE]")
-                        .withColor(TextColor.DARK_RED)
-                        .withStyle(ChatFormatting.UNDERLINE)
-                        .withStyle(ChatFormatting.BOLD)
-                        .withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(declineCommand))))
-                ;
-    }
-
-
-    private static class DuelLeaderboardComparator implements Comparator<ServerPlayer> {
-
-        private final Duel duel;
-
-        public DuelLeaderboardComparator(Duel duel) {
-            this.duel = duel;
-        }
+    private record DuelLeaderboardComparator(Duel duel) implements Comparator<ServerPlayer> {
 
         @Override
-        public int compare(ServerPlayer player1, ServerPlayer player2) {
+            public int compare(ServerPlayer player1, ServerPlayer player2) {
 
-            PlayerDuelState duelState1 = duel.getDuelState(player1);
-            PlayerDuelState duelState2 = duel.getDuelState(player2);
+                PlayerDuelState duelState1 = duel.getDuelState(player1);
+                PlayerDuelState duelState2 = duel.getDuelState(player2);
 
-            float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
-            float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
+                float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
+                float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
 
-            if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
+                if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
 
-                int totems1 = duelState1.getTotemPops();
-                int totems2 = duelState2.getTotemPops();
+                    int totems1 = duelState1.getTotemPops();
+                    int totems2 = duelState2.getTotemPops();
 
-                if (totems1 == totems2) return 0;
-                return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
+                    if (totems1 == totems2) return 0;
+                    return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
+                }
+                return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
             }
-            return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
         }
-    }
 }

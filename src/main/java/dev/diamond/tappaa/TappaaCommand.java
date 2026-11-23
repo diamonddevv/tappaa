@@ -120,22 +120,14 @@ public class TappaaCommand {
                                 literal("forceduel").then(
                                         argument("player", EntityArgument.player()).executes(TappaaCommand::devForceDuelDirect)
                                 )
-                        ).then(
-                                literal("test_dueldirectmulti").then(
-                                        argument("players", EntityArgument.players()).executes(TappaaCommand::duelDirectMultiple).then(
-                                                argument("kit", IdentifierArgument.id())
-                                                        .suggests(new AvailableKitsSuggestionProvider())
-                                                        .executes(TappaaCommand::duelDirectMultiple)
-                                        )
-                                )
                         )
                 ).then(
                         literal("duel").then(
                                 literal("request").then(
-                                        argument("player", EntityArgument.player()).executes(TappaaCommand::duelDirect).then(
+                                        argument("players", EntityArgument.players()).executes(TappaaCommand::duelDirectMultiple).then(
                                                 argument("kit", IdentifierArgument.id())
-                                                .suggests(new AvailableKitsSuggestionProvider())
-                                                .executes(TappaaCommand::duelDirect)
+                                                        .suggests(new AvailableKitsSuggestionProvider())
+                                                        .executes(TappaaCommand::duelDirectMultiple)
                                         )
                                 )
                         ).then(
@@ -297,10 +289,10 @@ public class TappaaCommand {
             }
 
             group.get().invite(target);
-            target.sendSystemMessage(Group.getIncomingInviteMessage(group.get()));
+            target.sendSystemMessage(ComponentMessages.target_InvitedToGroupRequest(group.get(), false));
 
 
-            group.get().broadcastMessage(Group.getSentInviteMessageGroup(group.get(), target), false);
+            group.get().broadcastMessage(ComponentMessages.broadcast_InvitedToGroup(group.get(), target), false);
         }
 
         if (failures == targets.size()) {
@@ -308,7 +300,7 @@ public class TappaaCommand {
             src.sendSystemMessage(Component.literal("Failed to send all requests.").withStyle(ChatFormatting.DARK_RED));
         } else if (targets.size() == 1) {
             playYaySound(src);
-            src.sendSystemMessage(Group.getSentInviteMessageOwner(targets.getFirst()));
+            src.sendSystemMessage(ComponentMessages.source_InvitedToGroup(targets.getFirst()));
         } else {
             playYaySound(src);
             src.sendSystemMessage(Component.literal("Sent " + (targets.size() - failures) + " requests.").withStyle(ChatFormatting.GREEN));
@@ -333,7 +325,7 @@ public class TappaaCommand {
 
         group.get().removeFromGroup(src);
         src.sendSystemMessage(Component.literal("Left group.").withStyle(ChatFormatting.YELLOW));
-        group.get().broadcastMessage(Group.getLeftMessage(src), true);
+        group.get().broadcastMessage(ComponentMessages.broadcast_LeftGroup(src), true);
 
         return 1;
     }
@@ -352,7 +344,10 @@ public class TappaaCommand {
                 .append(Component.literal("'s group:").withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE, ChatFormatting.GOLD)))
         ;
         for (ServerPlayer player : group.get().getMembers()) {
-            src.sendSystemMessage(TappaaUtil.playerTextComponent(player, ChatFormatting.ITALIC));
+            src.sendSystemMessage(TappaaUtil.playerTextComponent(player));
+        }
+        for (ServerPlayer player : group.get().getRequestedMembers()) {
+            src.sendSystemMessage(TappaaUtil.playerTextComponent(player, ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         return 1;
     }
@@ -378,10 +373,10 @@ public class TappaaCommand {
             throw ERROR_NOT_INVITED.create();
         }
 
-        src.sendSystemMessage(Group.getAcceptMessage(group.get()));
+        src.sendSystemMessage(ComponentMessages.source_JoinedGroup(group.get()));
         playYaySound(src);
 
-        group.get().broadcastMessage(Group.getJoinedMessage(src), true);
+        group.get().broadcastMessage(ComponentMessages.broadcast_JoinedGroup(src), true);
         group.get().forEachMember(TappaaCommand::playYaySound, true);
 
         group.get().addToGroup(src);
@@ -406,10 +401,10 @@ public class TappaaCommand {
             throw ERROR_NOT_INVITED.create();
         }
 
-        src.sendSystemMessage(Group.getDeclinedMessage(group.get()));
+        src.sendSystemMessage(ComponentMessages.source_LeftGroup(group.get()));
         playBadSound(src);
 
-        Component msg = Group.getRejectedMessage(src);
+        Component msg = ComponentMessages.broadcast_DeclinedInvite(src);
         group.get().forEachMember(member -> {
             member.sendSystemMessage(msg);
             playBadSound(member);
@@ -448,10 +443,10 @@ public class TappaaCommand {
 
         group.get().removeFromGroup(target);
 
-        target.sendSystemMessage(Group.getKickedMessage(group.get()));
+        target.sendSystemMessage(ComponentMessages.target_KickedFromGroup(group.get()));
         TappaaCommand.playBadSound(target);
 
-        group.get().broadcastMessage(Group.getKickedBroadcastMessage(target), true);
+        group.get().broadcastMessage(ComponentMessages.broadcast_KickedFromGroup(target), true);
         group.get().forEachMember(TappaaCommand::playBadSound, true);
 
         return 1;
@@ -459,6 +454,7 @@ public class TappaaCommand {
 
     // DUEL
 
+    @Deprecated
     private static int duelDirect(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
@@ -504,17 +500,16 @@ public class TappaaCommand {
         } else {
 
             duelGroup.invite(target);
-            target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
+            target.sendSystemMessage(ComponentMessages.target_InvitedToGroupRequest(duelGroup, true));
 
             playYaySound(src);
-            src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(target));
+            src.sendSystemMessage(ComponentMessages.source_SentQuickDuelRequestSingle(target));
 
             return 1;
         }
     }
 
     private static int duelDirectMultiple(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        // todo make this usable and replace above, need to await all requests answered (probably need to add request timeout)
 
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
@@ -577,7 +572,7 @@ public class TappaaCommand {
             }
 
             duelGroup.invite(target);
-            target.sendSystemMessage(Duel.getIncomingQuickDuelInviteMessage(duelGroup));
+            target.sendSystemMessage(ComponentMessages.target_InvitedToGroupRequest(duelGroup, true));
         }
 
 
@@ -586,7 +581,7 @@ public class TappaaCommand {
             src.sendSystemMessage(Component.literal("Failed to send all requests.").withStyle(ChatFormatting.DARK_RED));
         } else if (targets.size() == 1) {
             playYaySound(src);
-            src.sendSystemMessage(Duel.getSentQuickDuelInviteMessage(targets.getFirst()));
+            src.sendSystemMessage(ComponentMessages.source_SentQuickDuelRequestSingle(targets.getFirst()));
         } else {
             playYaySound(src);
             src.sendSystemMessage(Component.literal("Sent " + (targets.size() - failures) + " requests.").withStyle(ChatFormatting.GREEN));
@@ -990,10 +985,10 @@ public class TappaaCommand {
                 } else {
                     group.get().removeFromGroup(player);
 
-                    player.sendSystemMessage(Group.getKickedMessage(group.get()));
+                    player.sendSystemMessage(ComponentMessages.target_KickedFromGroup(group.get()));
                     TappaaCommand.playBadSound(player);
 
-                    group.get().broadcastMessage(Group.getKickedBroadcastMessage(player), true);
+                    group.get().broadcastMessage(ComponentMessages.broadcast_KickedFromGroup(player), true);
                     group.get().forEachMember(TappaaCommand::playBadSound, true);
                 }
             }
@@ -1039,10 +1034,10 @@ public class TappaaCommand {
                 } else {
                     playerGroup.removeFromGroup(player);
 
-                    player.sendSystemMessage(Group.getKickedMessage(group.get()));
+                    player.sendSystemMessage(ComponentMessages.target_KickedFromGroup(group.get()));
                     TappaaCommand.playBadSound(player);
 
-                    playerGroup.broadcastMessage(Group.getKickedBroadcastMessage(player), true);
+                    playerGroup.broadcastMessage(ComponentMessages.broadcast_KickedFromGroup(player), true);
                     playerGroup.forEachMember(TappaaCommand::playBadSound, true);
 
                 }

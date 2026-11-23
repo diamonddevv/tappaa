@@ -2,11 +2,9 @@ package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.TappaaCommand;
 import dev.diamond.tappaa.TappaaUtil;
-import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.Kit;
 import dev.diamond.tappaa.serial.SavedKits;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -17,12 +15,13 @@ import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GroupManager {
 
-    private final HashMap<UUID, Group> groups;
+    private final ConcurrentHashMap<UUID, Group> groups;
     protected GroupManager() {
-        this.groups = new HashMap<>();
+        this.groups = new ConcurrentHashMap<>();
     }
 
     public static final GroupManager INSTANCE = new GroupManager();
@@ -84,6 +83,7 @@ public class GroupManager {
             }
             player.removeAttached(Group.GROUP_ID_ATTACHMENT);
         }
+        group.rescindAllInvites();
         group.clearGroup();
         this.groups.remove(group.getGroupUuid());
     }
