@@ -14,6 +14,7 @@ import java.util.*;
 public class DuelStats extends SavedData {
     /*
      * There's a good chance ill replace this with a proper database.
+     * with a webserver :P that would be awesome
      */
 
     private static final Codec<DuelStats> CODEC = Codec.unboundedMap(

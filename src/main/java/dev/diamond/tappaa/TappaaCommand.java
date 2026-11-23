@@ -178,6 +178,12 @@ public class TappaaCommand {
                                                 .suggests(new AvailableKitsSuggestionProvider())
                                                 .executes(TappaaCommand::kitDelete)
                                 )
+                        ).then(
+                                literal("copyheld").then(
+                                        argument("slot", SlotArgument.slot()).then(
+                                                argument("from", EntityArgument.player()).executes(TappaaCommand::kitSetItemHeld)
+                                        )
+                                )
                         )
                 )
         );
@@ -755,6 +761,49 @@ public class TappaaCommand {
 
         group.get().getKitManager().setItem(realSlot, stack);
         
+        playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))
+                .append(TappaaUtil.itemStackComponent(stack)) // item
+                .append(Component.literal(" to kit.").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+    private static int kitSetItemHeld(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            playBadSound(src);
+            throw ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            playBadSound(src);
+            throw ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            playBadSound(src);
+            throw ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        int slot = SlotArgument.getSlot(ctx, "slot");
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "from");
+
+        ItemStack stack = target.getMainHandItem();
+
+        int realSlot = Kit.slotMapPlayer2Kit(slot);
+
+        if (realSlot == -1) {
+            playBadSound(src);
+            throw ERROR_BAD_SLOT.create();
+        }
+
+        group.get().getKitManager().setItem(realSlot, stack);
+
         playYaySound(src);
         src.sendSystemMessage(Component.empty()
                 .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))

@@ -51,7 +51,8 @@ public class Tappaa implements ModInitializer {
 				"im not liable",
 				"this is not legal advice",
 				"do your homework",
-				"stop downloading simple trims its not even good"
+				"stop downloading simple trims its not even good",
+				"fynn"
 		};
 
 		return lines[Math.toIntExact(l % lines.length)];
