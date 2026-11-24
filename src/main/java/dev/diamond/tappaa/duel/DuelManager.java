@@ -114,7 +114,7 @@ public class DuelManager {
 
             if (duel.isPresent()) {
 
-                Entity killerEntity = damageSource.getDirectEntity();
+                Entity killerEntity = damageSource.getEntity();
                 ServerPlayer killer = null;
 
                 if (player.isHolding(item -> item.has(DataComponents.DEATH_PROTECTION))) {
