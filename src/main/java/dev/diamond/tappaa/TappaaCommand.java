@@ -860,6 +860,7 @@ public class TappaaCommand {
 
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
+        // theres a bug here somewhere
         SavedKits.getSavedKits(ctx.getSource().getServer())
                 .saveKit(id, group.get().getKitManager().getKit().mapped(), true);
 

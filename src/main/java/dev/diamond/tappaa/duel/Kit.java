@@ -26,9 +26,11 @@ public class Kit {
 
 
     protected final NonNullList<ItemStack> items;
+    private final int lives;
 
     public Kit() {
         this.items = NonNullList.withSize(KIT_UI_SLOTS, ItemStack.EMPTY);
+        this.lives = 3;
     }
 
     public Kit withHelmet(ItemStack stack) {
@@ -93,6 +95,9 @@ public class Kit {
         return map;
     }
 
+    public int getLives() {
+        return lives;
+    }
 
     private ItemStack getItem(int slot) {
         return this.items.get(slot);
@@ -111,8 +116,6 @@ public class Kit {
         if (slot >= 9 && slot < 9 + INVENTORY_SLOTS) {
             return slot - HOTBAR_SLOTS;
         }
-
-        System.out.println(slot);
 
         if (slot == INV_HELMET_SLOT) return HELMET_SLOT;
         if (slot == INV_CHESTPLATE_SLOT) return CHESTPLATE_SLOT;

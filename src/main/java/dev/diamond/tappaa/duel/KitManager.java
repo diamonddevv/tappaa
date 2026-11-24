@@ -40,6 +40,9 @@ public class KitManager implements MenuProvider, Container {
     (custom ui menu... etc.)
 
     this needs alot of work anyway, the slots matching could be well improved..
+
+    will maybe just rewrite largely. it doesnt make alot of sense that a kit can only be
+    edited from within a team...
      */
 
     private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");

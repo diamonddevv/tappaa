@@ -45,6 +45,7 @@ public class Duel {
     private final UUID uuid;
     private final HashMap<UUID, PlayerDuelState> players;
     private final KitManager kitManager;
+    private final int initialLives;
     private int pregameTimeTicks;
     private final int respawnTicks;
     private final MinecraftServer server;
@@ -59,6 +60,7 @@ public class Duel {
         this.useKit = useKit;
         this.players = new HashMap<>();
 
+        this.initialLives = kit.getKit().getLives();
         this.respawnTicks = 5 * 20;
         this.pregameTimeTicks = PREGAME_TICKS;
         this.timerTicks = 0;
@@ -66,7 +68,7 @@ public class Duel {
         this.onEnd = onEnd;
         
         players.forEach(player -> {
-            this.players.put(player.getUUID(), new PlayerDuelState(this, player, 3));
+            this.players.put(player.getUUID(), new PlayerDuelState(this, player, this.initialLives));
             setDuelAttachment(player);
         });
 
