@@ -1,7 +1,6 @@
 package dev.diamond.tappaa.group;
 
-import dev.diamond.tappaa.ComponentMessages;
-import dev.diamond.tappaa.TappaaCommand;
+import dev.diamond.tappaa.command.PlayerFeedback;
 import dev.diamond.tappaa.TappaaUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -40,11 +39,11 @@ public class GroupRequest {
     private void onTimeout() {
         ServerPlayer player = group.getServer().getPlayerList().getPlayer(targetPlayerUuid);
         if (player != null) {
-            TappaaCommand.playBadSound(player); // borrow the bad sound lol
-            player.sendSystemMessage(ComponentMessages.target_RequestExpired(this.group));
+            PlayerFeedback.playBadSound(player); // borrow the bad sound lol
+            player.sendSystemMessage(PlayerFeedback.target_RequestExpired(this.group));
 
             group.forEachMember(member -> {
-                TappaaCommand.playBadSound(member);
+                PlayerFeedback.playBadSound(member);
                 member.sendSystemMessage(Component.empty()
                         .append(TappaaUtil.playerTextComponent(player, ChatFormatting.GOLD))
                         .append(Component.literal("'s invite expired.").withStyle(ChatFormatting.YELLOW))

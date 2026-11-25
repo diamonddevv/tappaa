@@ -1,5 +1,6 @@
 package dev.diamond.tappaa;
 
+import dev.diamond.tappaa.command.TappaaCommands;
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.GroupManager;
 import net.fabricmc.api.ModInitializer;
@@ -19,8 +20,7 @@ public class Tappaa implements ModInitializer {
 	@Override
 	public void onInitialize() {
 
-		CommandRegistrationCallback.EVENT.register(TappaaCommand::register);
-
+		TappaaCommands.registerAll();
 
 		GroupManager.registerGroupEvents();
 		DuelManager.registerDuelingEvents();
@@ -52,7 +52,9 @@ public class Tappaa implements ModInitializer {
 				"this is not legal advice",
 				"do your homework",
 				"stop downloading simple trims its not even good",
-				"fynn"
+				"fynn",
+				"i split the commands",
+				"thanks to the people who helped test!"
 		};
 
 		return lines[Math.toIntExact(l % lines.length)];

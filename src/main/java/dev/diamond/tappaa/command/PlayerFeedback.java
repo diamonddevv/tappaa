@@ -1,5 +1,7 @@
-package dev.diamond.tappaa;
+package dev.diamond.tappaa.command;
 
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupRequest;
 import net.minecraft.ChatFormatting;
@@ -8,8 +10,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 /**
+ *  Messages and sources of feedback to players.
+ *  <br>
+ *  <br>
+ *
  *  Contains all the messages used in the mod. Doesn't send anything, just builds components. Eventually, these will be migrated to
  *  use translation keys with fallbacks.
  *
@@ -22,7 +29,31 @@ import net.minecraft.server.level.ServerPlayer;
  *
  *  Method descriptions should try to include the intended translation key, for when that is written.
  */
-public class ComponentMessages {
+public class PlayerFeedback {
+
+    public static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You are not in a duel!"));
+    public static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is not in a group!"));
+    public static final SimpleCommandExceptionType ERROR_OTHER_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is not in a duel!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_GROUP_OWNER = new SimpleCommandExceptionType(Component.literal("You are not the owner of this group!"));
+    public static final SimpleCommandExceptionType ERROR_GROUP_OWNER_CANT_LEAVE = new SimpleCommandExceptionType(Component.literal("You can't leave your own group!"));
+    public static final SimpleCommandExceptionType ERROR_GROUP_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That group does not exist!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_INVITED = new SimpleCommandExceptionType(Component.literal("You aren't invited to this group!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_INVITE_SELF = new SimpleCommandExceptionType(Component.literal("You can't invite yourself to a group!"));
+    public static final SimpleCommandExceptionType ERROR_PLAYER_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("This player is already in your group!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_KICK_NON_MEMBER = new SimpleCommandExceptionType(Component.literal("You can't kick someone who isn't in your party!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
+    public static final SimpleCommandExceptionType ERROR_ALREADY_IN_DUEL = new SimpleCommandExceptionType(Component.literal("Your group is already in a duel!"));
+    public static final SimpleCommandExceptionType ERROR_OTHER_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is already in a group!"));
+    public static final SimpleCommandExceptionType ERROR_OTHER_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_NO_PERMISSION = new SimpleCommandExceptionType(Component.literal("You can't edit the kit using the UI, you lack the permission."));
+    public static final SimpleCommandExceptionType ERROR_CANT_INVITE_NOW = new SimpleCommandExceptionType(Component.literal("You can't invite players to your group right now!"));
+    public static final SimpleCommandExceptionType ERROR_BAD_SLOT = new SimpleCommandExceptionType(Component.literal("You can't edit into that slot!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));
+    public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE = new SimpleCommandExceptionType(Component.literal("You must specify at least one player!"));
+    public static final SimpleCommandExceptionType ERROR_KIT_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That kit does not exist!"));
 
     /**
      * msg.tappaa.group.invited.source
@@ -52,8 +83,8 @@ public class ComponentMessages {
      */
     public static Component target_InvitedToGroupRequest(Group group, boolean duel) {
 
-        String acceptCommand = "tappaa group accept " + group.getGroupUuid();
-        String declineCommand = "tappaa group decline " + group.getGroupUuid();
+        String acceptCommand = "group accept " + group.getGroupUuid();
+        String declineCommand = "group decline " + group.getGroupUuid();
 
         return Component.empty()
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
@@ -169,5 +200,20 @@ public class ComponentMessages {
                 .append(Component.literal("Your invite to ").withStyle(ChatFormatting.YELLOW))
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
                 .append(Component.literal("'s " + (group.isQuickDuelGroup() ? "duel" : "group") + " has expired.").withStyle(ChatFormatting.YELLOW));
+    }
+
+
+    // SOUND FEEDBACK
+
+    public static void playYaySound(ServerPlayer target) {
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BANJO.value(), 1f, 1.2f);
+    }
+
+    public static void playBadSound(ServerPlayer target) {
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_BASS.value(), 1f, 1.0f);
+    }
+
+    public static void playDuelSound(ServerPlayer target) {
+        TappaaUtil.playSoundToPlayer(target, SoundEvents.NOTE_BLOCK_IRON_XYLOPHONE.value(), 1, 1.8f);
     }
 }

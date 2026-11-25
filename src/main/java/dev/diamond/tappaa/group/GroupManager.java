@@ -1,7 +1,7 @@
 package dev.diamond.tappaa.group;
 
-import dev.diamond.tappaa.TappaaCommand;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.command.PlayerFeedback;
 import dev.diamond.tappaa.duel.Kit;
 import dev.diamond.tappaa.serial.SavedKits;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -78,7 +78,7 @@ public class GroupManager {
         Component message = Component.literal("Your group has been disbanded.").withStyle(ChatFormatting.YELLOW);
         for (ServerPlayer player : group.getMembers()) {
             if (!silent) {
-                TappaaCommand.playYaySound(player);
+                PlayerFeedback.playYaySound(player);
                 player.sendSystemMessage(message);
             }
             player.removeAttached(Group.GROUP_ID_ATTACHMENT);
