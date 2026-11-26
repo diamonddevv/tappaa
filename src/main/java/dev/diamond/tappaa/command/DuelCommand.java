@@ -36,9 +36,7 @@ public class DuelCommand {
                                 )
                         )
                 ).then(
-                        literal("group").executes(c -> DuelCommand.duelGroup(c, true)).then(
-                                literal("nokit").executes(c -> DuelCommand.duelGroup(c, false))
-                        )
+                        literal("group").executes(DuelCommand::duelGroup)
                 ).then(
                         literal("end").executes(DuelCommand::endDuel)
                 )
@@ -181,7 +179,7 @@ public class DuelCommand {
         return 1;
     }
 
-    private static int duelGroup(CommandContext<CommandSourceStack> ctx, boolean useKit) throws CommandSyntaxException {
+    private static int duelGroup(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
         Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
@@ -205,7 +203,7 @@ public class DuelCommand {
             throw PlayerFeedback.ERROR_NOT_ENOUGH_PLAYERS.create();
         }
 
-        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), false, useKit);
+        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), false);
 
         if (duel.isPresent()) { // this should always be true, really
             for (ServerPlayer member : duel.get().getPlayers()) {

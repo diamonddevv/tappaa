@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.AvailableKitsSuggestionProvider;
 import dev.diamond.tappaa.duel.Kit;
@@ -37,7 +38,7 @@ public class KitCommand {
                                 argument("player", EntityArgument.player()).executes(KitCommand::kitFromPlayer)
                         )
                 ).then(
-                        literal("item").then(
+                        literal("additem").then(
                                 argument("slot", SlotArgument.slot()).then(
                                         argument("item", ItemArgument.item(ctx)).executes(KitCommand::kitSetItem).then(
                                                 argument("count", IntegerArgumentType.integer(0)).executes(KitCommand::kitSetItem)
@@ -250,10 +251,8 @@ public class KitCommand {
 
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
-        // theres a bug here somewhere
         SavedKits.getSavedKits(ctx.getSource().getServer())
-                .saveKit(id, group.get().getKitManager().getKit().mapped(), true);
-
+                .saveKit(id, group.get().getKitManager().getKit(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -286,8 +285,8 @@ public class KitCommand {
 
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
-        SavedKits.getSavedKits(ctx.getSource().getServer()).getMappedItemsFromId(id).ifPresentOrElse(map -> {
-            group.get().getKitManager().setKit(Kit.fromMap(map));
+        SavedKits.getSavedKits(ctx.getSource().getServer()).getKitFromId(id).ifPresentOrElse(kit -> {
+            group.get().getKitManager().setKit(kit);
 
             PlayerFeedback.playYaySound(src);
             src.sendSystemMessage(Component.empty()

@@ -3,6 +3,7 @@ package dev.diamond.tappaa.serial;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.diamond.tappaa.Tappaa;
+import dev.diamond.tappaa.duel.Kit;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
@@ -14,7 +15,7 @@ import java.util.*;
 public class SavedKits extends SavedData {
 
     private static final Codec<SavedKits> CODEC = Codec.unboundedMap(
-            Identifier.CODEC, IndexedItemStack.CODEC.listOf()
+            Identifier.CODEC, Kit.CODEC
     ).xmap(
             SavedKits::new,
             SavedKits::getMap
@@ -26,17 +27,17 @@ public class SavedKits extends SavedData {
             CODEC, null
     );
 
-    private final Map<Identifier, List<IndexedItemStack>> data;
+    private final Map<Identifier, Kit> data;
 
     private SavedKits() {
         this.data = new HashMap<>();
     }
 
-    private SavedKits(Map<Identifier, List<IndexedItemStack>> map) {
-        this.data = map;
+    private SavedKits(Map<Identifier, Kit> map) {
+        this.data = new HashMap<>(map);
     }
 
-    private Map<Identifier, List<IndexedItemStack>> getMap() {
+    private Map<Identifier, Kit> getMap() {
         return data;
     }
 
@@ -45,24 +46,17 @@ public class SavedKits extends SavedData {
         return this.data.keySet().stream().map(Identifier::toString).toList();
     }
 
-    public Optional<HashMap<Integer, ItemStack>> getMappedItemsFromId(Identifier id) {
-        return Optional.ofNullable(this.data.get(id)).map(IndexedItemStack::decomposeList);
+    public Optional<Kit> getKitFromId(Identifier id) {
+        return Optional.ofNullable(this.data.get(id));
     }
 
     public boolean idExists(Identifier id) {
         return this.data.containsKey(id);
     }
 
-    public boolean saveKit(Identifier id, HashMap<Integer, ItemStack> mappedItems, boolean overwrite) {
+    public boolean saveKit(Identifier id, Kit kit, boolean overwrite) {
         if (idExists(id) && !overwrite) return false;
-
-        List<IndexedItemStack> stacks = new ArrayList<>();
-        for (Map.Entry<Integer, ItemStack> entry : mappedItems.entrySet()) {
-            stacks.add(new IndexedItemStack(entry.getKey(), entry.getValue()));
-        }
-
-        this.data.put(id, stacks);
-
+        this.data.put(id, kit);
         this.setDirty();
         return true;
     }
@@ -79,8 +73,7 @@ public class SavedKits extends SavedData {
         return server.getDataStorage().computeIfAbsent(TYPE);
     }
 
-
-    private record IndexedItemStack(int idx, ItemStack stack) {
+    public record IndexedItemStack(int idx, ItemStack stack) {
         public static final Codec<IndexedItemStack> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.INT.fieldOf("idx").forGetter(IndexedItemStack::idx),
                 ItemStack.CODEC.fieldOf("stack").forGetter(IndexedItemStack::stack)

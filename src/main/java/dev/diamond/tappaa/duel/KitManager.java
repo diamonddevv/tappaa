@@ -46,6 +46,9 @@ public class KitManager implements MenuProvider, Container {
      */
 
     private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");
+    public static final int DEFAULT_KIT_LIVES = 3;
+    public static final int DEFAULT_KIT_RESPAWN_TICKS = 5 * 20;
+
     private static final String IS_OF_KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
 
     private final Component containerName;
@@ -56,6 +59,16 @@ public class KitManager implements MenuProvider, Container {
         this.kit = KitManager.defaultKit();
     }
 
+    public static List<ItemStack> getCopyOfItems(ServerPlayer player) {
+        List<ItemStack> items = new ArrayList<>();
+
+        for (ItemStack item : player.getInventory()) {
+            items.add(item.copy());
+        }
+
+        return items;
+    }
+
     public void openContainerToPlayer(ServerPlayer player) {
         player.openMenu(this);
     }
@@ -63,27 +76,9 @@ public class KitManager implements MenuProvider, Container {
     public static void saveDefaultKit(MinecraftServer minecraftServer) {
         if (!SavedKits.getSavedKits(minecraftServer).idExists(DEFAULT_KIT_ID)) {
             SavedKits.getSavedKits(minecraftServer).saveKit(
-                    DEFAULT_KIT_ID, KitManager.defaultKit().mapped(), true
+                    DEFAULT_KIT_ID, KitManager.defaultKit(), true
             );
         }
-    }
-
-
-    public void copyToPlayer(ServerPlayer player) {
-
-        for (int i = 0; i < Kit.HOTBAR_SLOTS; i++) {
-            player.getInventory().setItem(i, this.getItemForGiving(Kit.HOTBAR_SLOTS_START + i));
-        }
-
-        for (int i = 0; i < Kit.INVENTORY_SLOTS; i++) {
-            player.getInventory().setItem(i + Kit.HOTBAR_SLOTS, this.getItemForGiving(i));
-        }
-
-        player.getInventory().setItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.HELMET_SLOT));
-        player.getInventory().setItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.CHESTPLATE_SLOT));
-        player.getInventory().setItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.LEGGINGS_SLOT));
-        player.getInventory().setItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.BOOTS_SLOT));
-        player.getInventory().setItem(Inventory.SLOT_OFFHAND, this.getItemForGiving(Kit.OFFHAND_SLOT));
     }
 
     public static NonNullList<ItemStack> savePlayerInventory(ServerPlayer player) {
@@ -144,15 +139,7 @@ public class KitManager implements MenuProvider, Container {
         }
     }
 
-    public List<ItemStack> getCopyOfItems(ServerPlayer player) {
-        List<ItemStack> items = new ArrayList<>();
 
-        for (ItemStack item : player.getInventory()) {
-            items.add(item.copy());
-        }
-
-        return items;
-    }
 
 
     @Override
@@ -190,12 +177,6 @@ public class KitManager implements MenuProvider, Container {
     @Override
     public @NonNull ItemStack getItem(int slot) {
         return this.getItems().get(slot);
-    }
-
-    public @NonNull ItemStack getItemForGiving(int slot) {
-        ItemStack stack = getItem(slot).copy();
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
-        return stack;
     }
 
     @Override

@@ -33,7 +33,7 @@ public class GroupManager {
     public Group createQuickDuelGroup(MinecraftServer server, ServerPlayer owner, @Nullable Identifier kitId) {
         Group group = createGroupInternal(owner, true, kitId != null);
         if (kitId != null) {
-            Optional<HashMap<Integer, ItemStack>> map = SavedKits.getSavedKits(server).getMappedItemsFromId(kitId);
+            Optional<HashMap<Integer, ItemStack>> map = SavedKits.getSavedKits(server).getKitFromId(kitId).map(SavedKits.SerialKit::getMappedItems);
             if (map.isPresent()) {
                 group.getKitManager().setKit(Kit.fromMap(map.get()));
             } else {

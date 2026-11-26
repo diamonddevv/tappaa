@@ -2,76 +2,85 @@ package dev.diamond.tappaa.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.*;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
-import dev.diamond.tappaa.serial.SavedKits;
+import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.commands.arguments.IdentifierArgument;
-import net.minecraft.commands.arguments.SlotArgument;
-import net.minecraft.commands.arguments.UuidArgument;
-import net.minecraft.commands.arguments.item.ItemArgument;
-import net.minecraft.commands.arguments.item.ItemInput;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 
-public class TappaaCommand {
+public class TappaaGeneralCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection selection) {
 
         dispatcher.register(
-                literal("tappaa").then(
+                literal("tappaa").executes(TappaaGeneralCommand::version).then(
                         literal("dev").requires(src -> FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment() || src.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS))).then(
                                 literal("forcegroup").then(
-                                        argument("players", EntityArgument.players()).executes(TappaaCommand::devForceCreateGroup)
+                                        argument("players", EntityArgument.players()).executes(TappaaGeneralCommand::devForceCreateGroup)
                                 )
                         ).then(
                                 literal("uuid").then(
                                         argument("player", EntityArgument.player()).then(
-                                                literal("group").executes(TappaaCommand::devGetGroupUuid)
+                                                literal("group").executes(TappaaGeneralCommand::devGetGroupUuid)
                                         ).then(
-                                                literal("duel").executes(TappaaCommand::devGetDuelUuid)
+                                                literal("duel").executes(TappaaGeneralCommand::devGetDuelUuid)
                                         )
                                 )
                         ).then(
                                 literal("forceinvite").then(
-                                        argument("players", EntityArgument.players()).executes(TappaaCommand::devForceInvite)
+                                        argument("players", EntityArgument.players()).executes(TappaaGeneralCommand::devForceInvite)
                                 )
                         ).then(
                                 literal("forceduel").then(
-                                        argument("player", EntityArgument.player()).executes(TappaaCommand::devForceDuelDirect)
+                                        argument("player", EntityArgument.player()).executes(TappaaGeneralCommand::devForceDuelDirect)
                                 )
                         ).then(
-                                literal("kitui").executes(TappaaCommand::devOpenKitUi)
+                                literal("kitui").executes(TappaaGeneralCommand::devOpenKitUi)
                         )
                 )
         );
+    }
+
+    private static int version(CommandContext<CommandSourceStack> ctx) {
+
+        ModContainer mod = FabricLoaderImpl.INSTANCE.getModContainer(Tappaa.MOD_ID).orElseThrow();
+
+        ctx.getSource().sendSystemMessage(Component.empty()
+                .append(Component.literal("Server is running: ").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC))
+                .append(Component.literal("tappaa").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                .append(" ")
+                .append(Component.empty()
+                        .append("v")
+                        .append(Component.literal(mod.getMetadata().getVersion().getFriendlyString()))
+                        .append(FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment() ? "-indev" : "")
+                ).withStyle(ChatFormatting.AQUA)
+        );
+
+        return 1;
     }
 
 

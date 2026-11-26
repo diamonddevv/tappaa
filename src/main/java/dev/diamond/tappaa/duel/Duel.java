@@ -44,24 +44,23 @@ public class Duel {
 
     private final UUID uuid;
     private final HashMap<UUID, PlayerDuelState> players;
-    private final KitManager kitManager;
+    private final Kit kit;
     private final int initialLives;
     private int pregameTimeTicks;
     private final int respawnTicks;
     private final MinecraftServer server;
-    private final boolean useKit;
     private int timerTicks;
     private final Consumer<Duel> onEnd;
 
-    public Duel(UUID uuid, MinecraftServer server, KitManager kit, boolean useKit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
+    public Duel(UUID uuid, MinecraftServer server, Kit kit, Collection<ServerPlayer> players, Consumer<Duel> onEnd) {
         this.uuid = uuid;
         this.server = server;
-        this.kitManager = kit;
-        this.useKit = useKit;
+        this.kit = kit;
         this.players = new HashMap<>();
 
-        this.initialLives = kit.getKit().getLives();
-        this.respawnTicks = 5 * 20;
+        this.initialLives = kit.getLives();
+        this.respawnTicks = kit.getRespawnTicks();
+
         this.pregameTimeTicks = PREGAME_TICKS;
         this.timerTicks = 0;
 
@@ -215,7 +214,7 @@ public class Duel {
             resetHealthAndHunger(player);
 
             KitManager.clearPlayerOfKitItems(player);
-            List<ItemStack> stacks = kitManager.getCopyOfItems(player);
+            List<ItemStack> stacks = KitManager.getCopyOfItems(player);
             KitManager.restorePlayerInventory(player, state.getPreDuelItems());
             stacks.forEach(player.getInventory()::add);
 
@@ -230,8 +229,8 @@ public class Duel {
             player.setGameMode(GameType.SURVIVAL);
             player.removeAllEffects();
             resetHealthAndHunger(player);
-            if (useKit) {
-                kitManager.copyToPlayer(player);
+            if (this.kit.getUsesStacks()) {
+                kit.copyToPlayer(player);
             }
             player.sendSystemMessage(Component.literal("Starting duel!").withStyle(ChatFormatting.YELLOW));
         });
@@ -307,9 +306,9 @@ public class Duel {
         teleport(player, duelState.getPreDuelPosition());
 
         KitManager.clearPlayerOfKitItems(player); // remove items that were part of the kit..
-        List<ItemStack> stacks = kitManager.getCopyOfItems(player); // copy all the items the player has left..
-        if (useKit) {
-            kitManager.copyToPlayer(player); // copy all the items that were in the kit, including empty slots, to the player
+        List<ItemStack> stacks = KitManager.getCopyOfItems(player); // copy all the items the player has left..
+        if (this.kit.getUsesStacks()) {
+            kit.copyToPlayer(player); // copy all the items that were in the kit, including empty slots, to the player
         } else {
             // restore to pre-duel inventory as if it were the kit
             KitManager.restorePlayerInventory(player, duelState.getPreDuelItems());
@@ -439,23 +438,23 @@ public class Duel {
     private record DuelLeaderboardComparator(Duel duel) implements Comparator<ServerPlayer> {
 
         @Override
-            public int compare(ServerPlayer player1, ServerPlayer player2) {
+        public int compare(ServerPlayer player1, ServerPlayer player2) {
 
-                PlayerDuelState duelState1 = duel.getDuelState(player1);
-                PlayerDuelState duelState2 = duel.getDuelState(player2);
+            PlayerDuelState duelState1 = duel.getDuelState(player1);
+            PlayerDuelState duelState2 = duel.getDuelState(player2);
 
-                float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
-                float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
+            float kdr1 = (duelState1.getKills() + duelState1.getDeaths()) != 0 ? (float) (duelState1.getKills() / (duelState1.getKills() + duelState1.getDeaths())) : 0;
+            float kdr2 = (duelState2.getKills() + duelState2.getDeaths()) != 0 ? (float) (duelState2.getKills() / (duelState2.getKills() + duelState2.getDeaths())) : 0;
 
-                if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
+            if (kdr1 == kdr2) { // if kdr is equal, compare totem pops
 
-                    int totems1 = duelState1.getTotemPops();
-                    int totems2 = duelState2.getTotemPops();
+                int totems1 = duelState1.getTotemPops();
+                int totems2 = duelState2.getTotemPops();
 
-                    if (totems1 == totems2) return 0;
-                    return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
-                }
-                return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
+                if (totems1 == totems2) return 0;
+                return totems1 > totems2 ? -1 : 1; // sort reverse order - more totems is better (we count how many this player has popped other players')
             }
+            return kdr1 > kdr2 ? -1 : 1; // sort reverse order - higher kdr is better
         }
+    }
 }
