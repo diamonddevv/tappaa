@@ -2,39 +2,40 @@ package dev.diamond.tappaa.duel;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.serial.SavedKits;
+import net.minecraft.commands.arguments.SlotArgument;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 public class Kit {
 
-    public static final int KIT_UI_SLOTS = 9 * 5;
-    public static final int INVENTORY_SLOTS = 9 * 3;
-    public static final int HOTBAR_SLOTS = 9;
-    public static final int HOTBAR_SLOTS_START = 27;
 
-    public static final int HELMET_SLOT = 36;
-    public static final int CHESTPLATE_SLOT = 37;
-    public static final int LEGGINGS_SLOT = 38;
-    public static final int BOOTS_SLOT = 39;
-    public static final int OFFHAND_SLOT = 41;
+    public static final int HELMET_SLOT = 5;
+    public static final int CHESTPLATE_SLOT = 6;
+    public static final int LEGGINGS_SLOT = 7;
+    public static final int BOOTS_SLOT = 8;
+    public static final int OFFHAND_SLOT = 45;
 
-    public static final int INV_HELMET_SLOT = 103;
-    public static final int INV_CHESTPLATE_SLOT = 102;
-    public static final int INV_LEGGINGS_SLOT = 101;
-    public static final int INV_BOOTS_SLOT = 100;
-    public static final int INV_OFFHAND_SLOT = 99;
+    private static final int INVENTORY_SLOTS_OFFSET = 9;
+    private static final int HOTBAR_SLOTS_OFFSET = 36;
+    private static final int HOTBAR_SLOTS = 9;
+    private static final int INVENTORY_SLOTS = 27;
 
     public static final Codec<Kit> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             SavedKits.IndexedItemStack.CODEC.listOf().fieldOf("stacks").forGetter(Kit::getIndexedStackList),
@@ -43,16 +44,20 @@ public class Kit {
             Codec.BOOL.fieldOf("uses_stacks").forGetter(Kit::getUsesStacks)
     ).apply(instance, Kit::decodec));
 
-    protected final NonNullList<ItemStack> items;
+    public static final int DEFAULT_KIT_LIVES = 3;
+    public static final int DEFAULT_KIT_RESPAWN_TICKS = 5 * 20;
+    private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");
+    private static final String IS_OF_KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
 
+    final NonNullList<ItemStack> items;
     private int lives;
-
     private int respawnTicks;
     private boolean usesStacks;
+
     public Kit() {
-        this.items = NonNullList.withSize(KIT_UI_SLOTS, ItemStack.EMPTY);
-        this.lives = KitManager.DEFAULT_KIT_LIVES;
-        this.respawnTicks = KitManager.DEFAULT_KIT_RESPAWN_TICKS;
+        this.items = NonNullList.withSize(Inventory.INVENTORY_SIZE, ItemStack.EMPTY);
+        this.lives = DEFAULT_KIT_LIVES;
+        this.respawnTicks = DEFAULT_KIT_RESPAWN_TICKS;
     }
     private static Kit decodec(List<SavedKits.IndexedItemStack> stacks, int lives, int respawnTicks, boolean usesStacks) {
         Kit kit = Kit.fromMap(SavedKits.IndexedItemStack.decomposeList(stacks));
@@ -62,9 +67,76 @@ public class Kit {
         return kit;
     }
 
+    public static List<ItemStack> getCopyOfItems(ServerPlayer player) {
+        List<ItemStack> items = new ArrayList<>();
+
+        for (ItemStack item : player.getInventory()) {
+            items.add(item.copy());
+        }
+
+        return items;
+    }
+
+    public static void saveDefaultKit(MinecraftServer minecraftServer) {
+        if (!SavedKits.getSavedKits(minecraftServer).idExists(DEFAULT_KIT_ID)) {
+            SavedKits.getSavedKits(minecraftServer).saveKit(
+                    DEFAULT_KIT_ID, defaultKit(), true
+            );
+        }
+    }
+
+    public static NonNullList<ItemStack> copyPlayerInventory(ServerPlayer player) {
+        NonNullList<ItemStack> stacks = NonNullList.withSize(Inventory.INVENTORY_SIZE, ItemStack.EMPTY);
+
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            stacks.set(i, player.getInventory().getItem(i).copy());
+        }
+
+        return stacks;
+    }
+
+    public static void restorePlayerInventory(ServerPlayer player, NonNullList<ItemStack> stacks) {
+        for (int i = 0; i < stacks.size(); i++) {
+            player.getInventory().setItem(i, stacks.get(i));
+        };
+    }
+
+    public static void clearPlayerOfKitItems(ServerPlayer player) {
+        Predicate<ItemStack> p = stack -> {
+            CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+            Optional<Boolean> bool = data.copyTag().getBoolean(IS_OF_KIT_CUSTOM_DATA_TAG);
+            return bool.orElse(false);
+        };
+
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (p.test(stack)) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+        }
+    }
+
+    public static Kit defaultKit() {
+        return new Kit()
+                .withHelmet(new ItemStack(Items.IRON_HELMET))
+                .withChestplate(new ItemStack(Items.IRON_CHESTPLATE))
+                .withLeggings(new ItemStack(Items.IRON_LEGGINGS))
+                .withBoots(new ItemStack(Items.IRON_BOOTS))
+
+                .withOffhand(new ItemStack(Items.SHIELD))
+
+                .withHotbar(new ItemStack(Items.DIAMOND_SWORD), 0)
+                .withHotbar(new ItemStack(Items.DIAMOND_AXE), 1)
+                .withHotbar(new ItemStack(Items.BOW), 2)
+                .withHotbar(new ItemStack(Items.GOLDEN_APPLE, 3), 3)
+                .withHotbar(new ItemStack(Items.COOKED_BEEF, 64), 4)
+
+                .withInventory(new ItemStack(Items.ARROW, 64), 0);
+    }
+
 
     public Kit withHelmet(ItemStack stack) {
-        setItem(HELMET_SLOT, stack);
+        setItem(, stack);
         return this;
     }
 
@@ -90,14 +162,14 @@ public class Kit {
 
     public Kit withHotbar(ItemStack stack, int hotbarSlot) {
         if (hotbarSlot >= 0 && hotbarSlot < HOTBAR_SLOTS) {
-            setItem(HOTBAR_SLOTS_START + hotbarSlot, stack);
+            setItem(HOTBAR_SLOTS_OFFSET + hotbarSlot, stack);
         }
         return this;
     }
 
     public Kit withInventory(ItemStack stack, int inventorySlot) {
         if (inventorySlot >= 0 && inventorySlot < INVENTORY_SLOTS) {
-            setItem(inventorySlot, stack);
+            setItem(INVENTORY_SLOTS_OFFSET + inventorySlot, stack);
         }
         return this;
     }
@@ -108,10 +180,14 @@ public class Kit {
 
         kit.items.clear();
         for (int slot : items.keySet()) {
-            kit.items.set(slot, items.get(slot));
+            kit.setItem(slot, items.get(slot));
         }
 
         return kit;
+    }
+    
+    public void setItem(int slot, ItemStack stack) {
+        this.items.set(slot, stack);
     }
 
     public HashMap<Integer, ItemStack> mapped() {
@@ -145,59 +221,21 @@ public class Kit {
         return usesStacks;
     }
 
-    private ItemStack getItem(int slot) {
-        return this.items.get(slot);
-    }
-
-    private void setItem(int slot, ItemStack stack) {
-        this.items.set(slot, stack);
-    }
-
     public void copyToPlayer(ServerPlayer player) {
 
-        // todo:    change the slot indices to be the same as in the player inv
-        //          and remove slot mapping function as it will be unnecessary
-        //          it will break the ui but i can fix that when i want to, i
-        //          dont like it right now anyway. tl;dr simplify kits
-
-        for (int i = 0; i < Kit.HOTBAR_SLOTS; i++) {
-            player.getInventory().setItem(i, this.getItemForGiving(Kit.HOTBAR_SLOTS_START + i));
+        for (int i = 0; i < items.size(); i++) {
+            player.getInventory().setItem(i, this.getItemForGiving(i));
         }
+    }
 
-        for (int i = 0; i < Kit.INVENTORY_SLOTS; i++) {
-            player.getInventory().setItem(i + Kit.HOTBAR_SLOTS, this.getItemForGiving(i));
-        }
-
-        player.getInventory().setItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.HELMET_SLOT));
-        player.getInventory().setItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.CHESTPLATE_SLOT));
-        player.getInventory().setItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.LEGGINGS_SLOT));
-        player.getInventory().setItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE), this.getItemForGiving(Kit.BOOTS_SLOT));
-        player.getInventory().setItem(Inventory.SLOT_OFFHAND, this.getItemForGiving(Kit.OFFHAND_SLOT));
+    public static boolean isSlotOkay(int slot) {
+        return true;
     }
 
     public @NonNull ItemStack getItemForGiving(int slot) {
-        ItemStack stack = getItem(slot).copy();
+        ItemStack stack = this.items.get(slot).copy();
         CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
         return stack;
-    }
-
-    public static int slotMapPlayer2Kit(int slot) {
-
-        if (slot >= 0 && slot < 9) {
-            return HOTBAR_SLOTS_START + slot;
-        }
-
-        if (slot >= 9 && slot < 9 + INVENTORY_SLOTS) {
-            return slot - HOTBAR_SLOTS;
-        }
-
-        if (slot == INV_HELMET_SLOT) return HELMET_SLOT;
-        if (slot == INV_CHESTPLATE_SLOT) return CHESTPLATE_SLOT;
-        if (slot == INV_LEGGINGS_SLOT) return LEGGINGS_SLOT;
-        if (slot == INV_BOOTS_SLOT) return BOOTS_SLOT;
-        if (slot == INV_OFFHAND_SLOT) return OFFHAND_SLOT;
-
-        return -1;
     }
 
 }

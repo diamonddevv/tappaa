@@ -307,7 +307,7 @@ public class TappaaGeneralCommand {
             throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
         }
 
-        group.get().getKitManager().openContainerToPlayer(src);
+        group.get().getKit().openContainerToPlayer(src);
 
         return 1;
     }

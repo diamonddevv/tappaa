@@ -35,7 +35,7 @@ public class GroupManager {
         if (kitId != null) {
             Optional<HashMap<Integer, ItemStack>> map = SavedKits.getSavedKits(server).getKitFromId(kitId).map(SavedKits.SerialKit::getMappedItems);
             if (map.isPresent()) {
-                group.getKitManager().setKit(Kit.fromMap(map.get()));
+                group.getKit().setKit(Kit.fromMap(map.get()));
             } else {
                 return null;
             }

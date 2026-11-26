@@ -29,7 +29,7 @@ public class PlayerDuelState {
 
         this.preDuelGamemode = player.gameMode();
         this.preDuelPosition = player.position();
-        this.preDuelItems = KitManager.savePlayerInventory(player);
+        this.preDuelItems = Kit.copyPlayerInventory(player);
 
         this.kills = 0;
         this.deaths = 0;

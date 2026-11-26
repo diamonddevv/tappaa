@@ -3,7 +3,8 @@ package dev.diamond.tappaa.group;
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
-import dev.diamond.tappaa.duel.KitManager;
+import dev.diamond.tappaa.duel.Kit;
+import dev.diamond.tappaa.duel.KitUi;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.core.UUIDUtil;
@@ -26,16 +27,15 @@ public class Group {
 
     private final UUID uuid;
     private final MinecraftServer server;
-    private final KitManager kit;
+    private final Kit kit;
     private final boolean invitesExpire;
     private UUID duelUuid;
     private final UUID ownerUuid;
     private final Collection<UUID> players;
     private final ConcurrentHashMap<UUID, GroupRequest> requests;
     private final boolean quickDuelGroup;
-    private final boolean quickDuelUseKit;
 
-    public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup, boolean quickDuelUseKit) {
+    public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup) {
         this.uuid = uuid;
         this.ownerUuid = owner.getUUID();
 
@@ -47,9 +47,6 @@ public class Group {
         this.invitesExpire = true;
 
         this.quickDuelGroup = quickDuelGroup;
-        this.quickDuelUseKit = quickDuelUseKit;
-
-        this.kit = new KitManager();
 
         addToGroup(owner);
     }
@@ -66,7 +63,7 @@ public class Group {
         return server.getPlayerList().getPlayer(ownerUuid);
     }
 
-    public KitManager getKitManager() {
+    public Kit getKit() {
         return kit;
     }
 
@@ -151,7 +148,7 @@ public class Group {
         if (isQuickDuelGroup()) {
             if (requests.isEmpty()) {
                 if (players.size() > 1) {
-                    DuelManager.INSTANCE.createDuelFromGroup(this, true, quickDuelUseKit);
+                    DuelManager.INSTANCE.createDuelFromGroup(this, true);
                 } else {
                     GroupManager.INSTANCE.disbandGroup(this, false);
                 }

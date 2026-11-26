@@ -44,7 +44,7 @@ public class DuelManager {
     public Optional<Duel> createDuelFromGroup(Group group, boolean disbandGroupAfter) {
         if (!group.hasValidActiveDuel()) {
             UUID uuid = UUID.randomUUID();
-            Duel duel = new Duel(uuid, group.getServer(), group.getKitManager(), group.getMembers(), disbandGroupAfter ? d -> {
+            Duel duel = new Duel(uuid, group.getServer(), group.getKit(), group.getMembers(), disbandGroupAfter ? d -> {
                 GroupManager.INSTANCE.disbandGroup(group, true);
             } : d -> {});
             group.setDuelUuid(uuid);
@@ -80,7 +80,7 @@ public class DuelManager {
 
     private static void serverStarted(MinecraftServer minecraftServer) {
         // immediately add the default kit
-        KitManager.saveDefaultKit(minecraftServer);
+        Kit.saveDefaultKit(minecraftServer);
     }
 
     private static void serverStopping(MinecraftServer minecraftServer) {

@@ -4,7 +4,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.AvailableKitsSuggestionProvider;
 import dev.diamond.tappaa.duel.Kit;
@@ -95,7 +94,7 @@ public class KitCommand {
         }
 
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
-        group.get().getKitManager().fromPlayerInventory(target);
+        group.get().getKit().fromPlayerInventory(target);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -138,14 +137,13 @@ public class KitCommand {
 
         ItemStack stack = item.createItemStack(count);
 
-        int realSlot = Kit.slotMapPlayer2Kit(slot);
 
-        if (realSlot == -1) {
+        if (Kit.isSlotOkay(slot)) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_BAD_SLOT.create();
         }
 
-        group.get().getKitManager().setItem(realSlot, stack);
+        group.get().getKit().setItem(slot, stack);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -188,7 +186,7 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_BAD_SLOT.create();
         }
 
-        group.get().getKitManager().setItem(realSlot, stack);
+        group.get().getKit().setItem(realSlot, stack);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -220,7 +218,7 @@ public class KitCommand {
         }
 
 
-        group.get().getKitManager().resetKitToDefault();
+        group.get().getKit().resetKitToDefault();
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -252,7 +250,7 @@ public class KitCommand {
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
         SavedKits.getSavedKits(ctx.getSource().getServer())
-                .saveKit(id, group.get().getKitManager().getKit(), true);
+                .saveKit(id, group.get().getKit().getKit(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -286,7 +284,7 @@ public class KitCommand {
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
         SavedKits.getSavedKits(ctx.getSource().getServer()).getKitFromId(id).ifPresentOrElse(kit -> {
-            group.get().getKitManager().setKit(kit);
+            group.get().getKit().setKit(kit);
 
             PlayerFeedback.playYaySound(src);
             src.sendSystemMessage(Component.empty()
