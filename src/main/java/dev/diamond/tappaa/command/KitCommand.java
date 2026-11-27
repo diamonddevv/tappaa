@@ -278,6 +278,12 @@ public class KitCommand {
                     .append(Component.literal(id.toString()).withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal("].").withStyle(ChatFormatting.GREEN))
             );
+
+
+            group.get().forEachMember(player -> {
+                // todo: notify all group members about kit change
+            }, false);
+
         }, () -> {
             PlayerFeedback.playBadSound(src);
             src.sendSystemMessage(Component.empty()
