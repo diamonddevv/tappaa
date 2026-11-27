@@ -27,25 +27,23 @@ public class GroupManager {
     public static final GroupManager INSTANCE = new GroupManager();
 
     public Group createGroup(ServerPlayer owner) {
-        return createGroupInternal(owner, false, false);
+        return createGroupInternal(owner, false);
     }
 
-    public Group createQuickDuelGroup(MinecraftServer server, ServerPlayer owner, @Nullable Identifier kitId) {
-        Group group = createGroupInternal(owner, true, kitId != null);
-        if (kitId != null) {
-            Optional<HashMap<Integer, ItemStack>> map = SavedKits.getSavedKits(server).getKitFromId(kitId).map(SavedKits.SerialKit::getMappedItems);
-            if (map.isPresent()) {
-                group.getKit().setKit(Kit.fromMap(map.get()));
-            } else {
-                return null;
-            }
+    public Group createQuickDuelGroup(MinecraftServer server, ServerPlayer owner, Identifier kitId) {
+        Group group = createGroupInternal(owner, true);
+        Optional<Kit> kit = SavedKits.getSavedKits(server).getKitFromId(kitId);
+        if (kit.isPresent()) {
+            group.setKit(kit.get());
+        } else {
+            return null;
         }
         return group;
     }
 
-    private Group createGroupInternal(ServerPlayer owner, boolean quickDuel, boolean quickDuelUsesKit) {
+    private Group createGroupInternal(ServerPlayer owner, boolean quickDuel) {
         UUID uuid = UUID.randomUUID();
-        Group group = new Group(uuid, owner, quickDuel, quickDuelUsesKit);
+        Group group = new Group(uuid, owner, quickDuel);
         this.groups.put(uuid, group);
         return group;
     }

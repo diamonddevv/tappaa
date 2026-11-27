@@ -29,7 +29,7 @@ public class DuelCommand {
         dispatcher.register(
                 literal("duel").then(
                         literal("request").then(
-                                argument("players", EntityArgument.players()).executes(DuelCommand::duelDirectMultiple).then(
+                                argument("players", EntityArgument.players()).then(
                                         argument("kit", IdentifierArgument.id())
                                                 .suggests(new AvailableKitsSuggestionProvider())
                                                 .executes(DuelCommand::duelDirectMultiple)
@@ -74,13 +74,7 @@ public class DuelCommand {
         }
 
         // set up duel
-        Identifier kitId;
-        try {
-            kitId = IdentifierArgument.getId(ctx, "kit");
-        } catch (IllegalArgumentException iae) {
-            kitId = null;
-        }
-
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(ctx.getSource().getServer(), src, kitId);
 
         if (duelGroup == null) {

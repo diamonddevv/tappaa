@@ -1,6 +1,7 @@
 package dev.diamond.tappaa.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -45,8 +46,6 @@ public class KitCommand {
                                 )
                         )
                 ).then(
-                        literal("reset").executes(KitCommand::kitReset)
-                ).then(
                         literal("save").then(
                                 argument("id", IdentifierArgument.id()).executes(KitCommand::kitSave)
                         )
@@ -68,11 +67,25 @@ public class KitCommand {
                                         argument("from", EntityArgument.player()).executes(KitCommand::kitSetItemHeld)
                                 )
                         )
+                ).then(
+                        literal("option").then(
+                                literal("lives").then(
+                                        argument("lives", IntegerArgumentType.integer(1)).executes(KitCommand::modifyLives)
+                                )
+                        ).then(
+                                literal("respawn").then(
+                                        argument("respawnTicks", IntegerArgumentType.integer(0)).executes(KitCommand::modifyRespawnTicks)
+                                )
+                        ).then(
+                                literal("ownitems").then(
+                                        argument("useOwnItems", BoolArgumentType.bool()).executes(KitCommand::modifyOwnItemsFlag)
+                                )
+                        )
                 )
         );
     }
 
-    // KIT
+
 
     private static int kitFromPlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
@@ -94,7 +107,7 @@ public class KitCommand {
         }
 
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
-        group.get().getKit().fromPlayerInventory(target);
+        group.get().getKit().setStacks(Kit.copyPlayerInventory(target));
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -138,7 +151,7 @@ public class KitCommand {
         ItemStack stack = item.createItemStack(count);
 
 
-        if (Kit.isSlotOkay(slot)) {
+        if (!Kit.isSlotOkay(slot)) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_BAD_SLOT.create();
         }
@@ -179,50 +192,18 @@ public class KitCommand {
 
         ItemStack stack = target.getMainHandItem();
 
-        int realSlot = Kit.slotMapPlayer2Kit(slot);
-
-        if (realSlot == -1) {
+        if (!Kit.isSlotOkay(slot)) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_BAD_SLOT.create();
         }
 
-        group.get().getKit().setItem(realSlot, stack);
+        group.get().getKit().setItem(slot, stack);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
                 .append(Component.literal("Added ").withStyle(ChatFormatting.GREEN))
                 .append(TappaaUtil.itemStackComponent(stack)) // item
                 .append(Component.literal(" to kit.").withStyle(ChatFormatting.GREEN))
-        );
-
-        return 1;
-    }
-
-    private static int kitReset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer src = ctx.getSource().getPlayerOrException();
-
-        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
-        if (group.isEmpty()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_NOT_IN_GROUP.create();
-        }
-
-        if (group.get().getOwner() != src) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
-        }
-
-        if (group.get().hasValidActiveDuel()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
-        }
-
-
-        group.get().getKit().resetKitToDefault();
-
-        PlayerFeedback.playYaySound(src);
-        src.sendSystemMessage(Component.empty()
-                .append(Component.literal("Reset kit.").withStyle(ChatFormatting.GREEN))
         );
 
         return 1;
@@ -248,9 +229,14 @@ public class KitCommand {
         }
 
         Identifier id = IdentifierArgument.getId(ctx, "id");
+        SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
 
-        SavedKits.getSavedKits(ctx.getSource().getServer())
-                .saveKit(id, group.get().getKit().getKit(), true);
+        if (kits.getKitFromId(id).map(Kit::overwriteable).orElse(false)) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_OVERWRITE_KIT.create();
+        }
+
+        kits.saveKit(id, group.get().getKit(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -284,7 +270,7 @@ public class KitCommand {
         Identifier id = IdentifierArgument.getId(ctx, "id");
 
         SavedKits.getSavedKits(ctx.getSource().getServer()).getKitFromId(id).ifPresentOrElse(kit -> {
-            group.get().getKit().setKit(kit);
+            group.get().setKit(kit);
 
             PlayerFeedback.playYaySound(src);
             src.sendSystemMessage(Component.empty()
@@ -346,6 +332,105 @@ public class KitCommand {
 
         return 1;
     }
+
+
+    private static int modifyLives(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        int i = IntegerArgumentType.getInteger(ctx, "lives");
+        group.get().getKit().withLives(i);
+
+        PlayerFeedback.playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Set lives to ").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(String.valueOf(i)).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(".").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+    private static int modifyRespawnTicks(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        int i = IntegerArgumentType.getInteger(ctx, "respawnTicks");
+        group.get().getKit().withRespawnTicks(i);
+
+        PlayerFeedback.playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Set respawn ticks to ").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(String.valueOf(i)).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(". (").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(String.format("%.2f", i / 20f)).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(" seconds)").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+
+    private static int modifyOwnItemsFlag(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
+        if (group.isEmpty()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_IN_GROUP.create();
+        }
+
+        if (group.get().getOwner() != src) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
+        }
+
+        if (group.get().hasValidActiveDuel()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
+        }
+
+        boolean bl = BoolArgumentType.getBool(ctx, "useOwnItems");
+        group.get().getKit().withUsesStacks(bl);
+
+        PlayerFeedback.playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal(bl ? "Set kit to use each player's own items." : "Set kit to use kit items.").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
 
 
 }

@@ -22,7 +22,7 @@ public class DuelStats extends SavedData {
     ).xmap(
             DuelStats::new,
             DuelStats::getMap
-    );
+    ).orElseGet(DuelStats::new);
 
     private static final SavedDataType<DuelStats> TYPE = new SavedDataType<>(
             Tappaa.id("duel_stats"),

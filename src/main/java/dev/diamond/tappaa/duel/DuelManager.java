@@ -80,7 +80,7 @@ public class DuelManager {
 
     private static void serverStarted(MinecraftServer minecraftServer) {
         // immediately add the default kit
-        Kit.saveDefaultKit(minecraftServer);
+        Kit.saveDefaultKits(minecraftServer);
     }
 
     private static void serverStopping(MinecraftServer minecraftServer) {

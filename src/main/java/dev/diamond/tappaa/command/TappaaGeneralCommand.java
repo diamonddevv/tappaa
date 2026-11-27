@@ -212,13 +212,6 @@ public class TappaaGeneralCommand {
             throw PlayerFeedback.ERROR_OTHER_IN_DUEL.create();
         }
 
-        // set up duel
-        boolean useKit;
-        try {
-            useKit = BoolArgumentType.getBool(ctx, "use_kit");
-        } catch (IllegalArgumentException iae) {
-            useKit = true;
-        }
 
         target.sendSystemMessage(Component.empty()
                 .append(Component.literal("You are forcefully dueling ").withStyle(ChatFormatting.GREEN))
@@ -227,7 +220,7 @@ public class TappaaGeneralCommand {
 
         Group duelGroup = GroupManager.INSTANCE.createGroup(src);
         duelGroup.addToGroup(target);
-        DuelManager.INSTANCE.createDuelFromGroup(duelGroup, true, useKit);
+        DuelManager.INSTANCE.createDuelFromGroup(duelGroup, true);
 
         return 1;
     }
@@ -307,9 +300,9 @@ public class TappaaGeneralCommand {
             throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
         }
 
-        group.get().getKit().openContainerToPlayer(src);
+        throw PlayerFeedback.ERROR_FUCK_YOU.create();
 
-        return 1;
+        //return 1;
     }
 
 }

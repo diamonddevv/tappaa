@@ -15,6 +15,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 
+import java.util.List;
+
 @Deprecated
 public class KitUi implements MenuProvider, Container {
 
@@ -46,26 +48,26 @@ public class KitUi implements MenuProvider, Container {
         player.openMenu(this);
     }
 
-    public void fromPlayerInventory(ServerPlayer player) {
-        this.kit = new Kit();
-
-        for (int i = 0; i < Kit.HOTBAR_SLOTS; i++) {
-            ItemStack stack = player.getInventory().getItem(i).copy();
-            this.setItem(Kit.HOTBAR_SLOTS_START + i, stack);
-        }
-
-        for (int i = 0; i < Kit.INVENTORY_SLOTS; i++) {
-            ItemStack stack = player.getInventory().getItem(i + Kit.HOTBAR_SLOTS).copy();
-            this.setItem(i, stack);
-        }
-
-        kit.withHelmet(player.getInventory().getItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE)));
-        kit.withChestplate(player.getInventory().getItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE)));
-        kit.withLeggings(player.getInventory().getItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE)));
-        kit.withBoots(player.getInventory().getItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE)));
-        kit.withOffhand(player.getInventory().getItem(Inventory.SLOT_OFFHAND));
-
-    }
+//    public void fromPlayerInventory(ServerPlayer player) {
+//        this.kit = new Kit();
+//
+//        for (int i = 0; i < Kit.HOTBAR_SLOTS; i++) {
+//            ItemStack stack = player.getInventory().getItem(i).copy();
+//            this.setItem(Kit.HOTBAR_SLOTS_START + i, stack);
+//        }
+//
+//        for (int i = 0; i < Kit.INVENTORY_SLOTS; i++) {
+//            ItemStack stack = player.getInventory().getItem(i + Kit.HOTBAR_SLOTS).copy();
+//            this.setItem(i, stack);
+//        }
+//
+//        kit.withHelmet(player.getInventory().getItem(EquipmentSlot.HEAD.getIndex(Inventory.INVENTORY_SIZE)));
+//        kit.withChestplate(player.getInventory().getItem(EquipmentSlot.CHEST.getIndex(Inventory.INVENTORY_SIZE)));
+//        kit.withLeggings(player.getInventory().getItem(EquipmentSlot.LEGS.getIndex(Inventory.INVENTORY_SIZE)));
+//        kit.withBoots(player.getInventory().getItem(EquipmentSlot.FEET.getIndex(Inventory.INVENTORY_SIZE)));
+//        kit.withOffhand(player.getInventory().getItem(Inventory.SLOT_OFFHAND));
+//
+//    }
 
 
     @Override
@@ -80,7 +82,7 @@ public class KitUi implements MenuProvider, Container {
 
     @Override
     public int getContainerSize() {
-        return Kit.KIT_UI_SLOTS;
+        return 0;// Kit.KIT_UI_SLOTS;
     }
 
     @Override
@@ -88,8 +90,8 @@ public class KitUi implements MenuProvider, Container {
         return this.getItems().isEmpty();
     }
 
-    public NonNullList<ItemStack> getItems() {
-        return kit.items;
+    public List<ItemStack> getItems() {
+        return kit.items.values().stream().toList();
     }
 
     public Kit getKit() {

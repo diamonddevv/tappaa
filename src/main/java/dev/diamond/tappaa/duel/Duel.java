@@ -14,8 +14,10 @@ import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.contents.objects.AtlasSprite;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Relative;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
@@ -215,10 +217,10 @@ public class Duel {
 
             Kit.clearPlayerOfKitItems(player);
             List<ItemStack> stacks = Kit.getCopyOfItems(player);
-            Kit.restorePlayerInventory(player, state.getPreDuelItems());
+            Kit.restorePlayerInventory(player, state.getPreDuelItems(), false);
             stacks.forEach(player.getInventory()::add);
 
-            teleport(player, state.getPreDuelPosition());
+            teleport(player, state.getPreDuelLevel(), state.getPreDuelPosition());
         });
     }
 
@@ -226,11 +228,15 @@ public class Duel {
         this.pregameTimeTicks = PREGAME_TICKS;
 
         forEachMemberOfDuel(player -> {
-            player.setGameMode(GameType.SURVIVAL);
+            player.setGameMode(GameType.SURVIVAL); // todo: check whether we should be in adventure or not; probably via config
             player.removeAllEffects();
             resetHealthAndHunger(player);
             if (this.kit.getUsesStacks()) {
                 kit.copyToPlayer(player);
+            } else {
+                withState(player, state -> {
+                    Kit.restorePlayerInventory(player, state.getPreDuelItems(), true);
+                });
             }
             player.sendSystemMessage(Component.literal("Starting duel!").withStyle(ChatFormatting.YELLOW));
         });
@@ -240,7 +246,7 @@ public class Duel {
         forEachMemberOfDuel(player -> {
             withState(player, state -> {
                 resetHealthAndHunger(player);
-                teleport(player, state.getPreDuelPosition());
+                teleport(player, state.getDuelLevel(), state.getDuelSpawnPosition());
             });
         });
     }
@@ -303,7 +309,7 @@ public class Duel {
 
         player.setGameMode(GameType.SURVIVAL);
         player.removeAllEffects();
-        teleport(player, duelState.getPreDuelPosition());
+        teleport(player, duelState.getDuelLevel(), duelState.getDuelSpawnPosition());
 
         Kit.clearPlayerOfKitItems(player); // remove items that were part of the kit..
         List<ItemStack> stacks = Kit.getCopyOfItems(player); // copy all the items the player has left..
@@ -311,7 +317,7 @@ public class Duel {
             kit.copyToPlayer(player); // copy all the items that were in the kit, including empty slots, to the player
         } else {
             // restore to pre-duel inventory as if it were the kit
-            Kit.restorePlayerInventory(player, duelState.getPreDuelItems());
+            Kit.restorePlayerInventory(player, duelState.getPreDuelItems(), true);
         }
         stacks.forEach(player.getInventory()::add); // give back the remaining items, which are items that they picked up during the duel.
 
@@ -355,8 +361,15 @@ public class Duel {
 
     }
 
-    public static void teleport(ServerPlayer player, Vec3 pos) {
-        player.teleportTo(pos.x, pos.y, pos.z);
+    public static void teleport(ServerPlayer player, ServerLevel level, Vec3 pos) {
+        player.teleportTo(
+                level,
+                pos.x, pos.y, pos.z,
+                Relative.union(Relative.DELTA, Relative.ROTATION),
+                player.yRotO,
+                player.xRotO,
+                false
+        );
     }
 
     public Component resolveFinalLeaderboardComponent(int results) {

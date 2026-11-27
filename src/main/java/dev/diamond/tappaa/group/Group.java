@@ -27,7 +27,7 @@ public class Group {
 
     private final UUID uuid;
     private final MinecraftServer server;
-    private final Kit kit;
+    private Kit kit;
     private final boolean invitesExpire;
     private UUID duelUuid;
     private final UUID ownerUuid;
@@ -45,6 +45,8 @@ public class Group {
         this.requests = new ConcurrentHashMap<>(); // since we need to remove invites on the fly, this needs to be concurrent as to not throw ConcurrentModificationException
         this.duelUuid = null;
         this.invitesExpire = true;
+
+        this.kit = Kit.defaultKit();
 
         this.quickDuelGroup = quickDuelGroup;
 
@@ -81,6 +83,10 @@ public class Group {
 
     public Collection<ServerPlayer> getRequestedMembers() {
         return requests.values().stream().map(GroupRequest::getTargetPlayer).toList();
+    }
+
+    public void setKit(Kit kit) {
+        this.kit = kit;
     }
 
     public void setDuelUuid(UUID uuid) {

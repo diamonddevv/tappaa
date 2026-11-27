@@ -6,6 +6,7 @@ import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.duel.Kit;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
@@ -19,12 +20,12 @@ public class SavedKits extends SavedData {
     ).xmap(
             SavedKits::new,
             SavedKits::getMap
-    );
+    ).orElseGet(SavedKits::new);
 
     private static final SavedDataType<SavedKits> TYPE = new SavedDataType<>(
             Tappaa.id("saved_kits"),
             SavedKits::new,
-            CODEC, null
+            CODEC, DataFixTypes.SAVED_DATA_COMMAND_STORAGE
     );
 
     private final Map<Identifier, Kit> data;
@@ -54,11 +55,10 @@ public class SavedKits extends SavedData {
         return this.data.containsKey(id);
     }
 
-    public boolean saveKit(Identifier id, Kit kit, boolean overwrite) {
-        if (idExists(id) && !overwrite) return false;
+    public void saveKit(Identifier id, Kit kit, boolean overwrite) {
+        if (idExists(id) && !overwrite) return;
         this.data.put(id, kit);
         this.setDirty();
-        return true;
     }
 
     public boolean remove(Identifier id) {
@@ -78,11 +78,5 @@ public class SavedKits extends SavedData {
                 Codec.INT.fieldOf("idx").forGetter(IndexedItemStack::idx),
                 ItemStack.CODEC.fieldOf("stack").forGetter(IndexedItemStack::stack)
         ).apply(instance, IndexedItemStack::new));
-
-        public static HashMap<Integer, ItemStack> decomposeList(List<IndexedItemStack> stacks) {
-            HashMap<Integer, ItemStack> map = new HashMap<>();
-            stacks.forEach(s -> map.put(s.idx, s.stack));
-            return map;
-        }
     }
 }

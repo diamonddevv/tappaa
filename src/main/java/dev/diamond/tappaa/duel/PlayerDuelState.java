@@ -1,24 +1,32 @@
 package dev.diamond.tappaa.duel;
 
-import net.minecraft.core.NonNullList;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.HashMap;
 
 public class PlayerDuelState {
     private final Duel duel;
     private final ServerPlayer player;
 
     private final GameType preDuelGamemode;
+
+    private final ServerLevel preDuelLevel;
     private final Vec3 preDuelPosition;
-    private final NonNullList<ItemStack> preDuelItems;
-    private int lastDeathTime;
+
+    private final ServerLevel duelLevel;
+    private final Vec3 duelSpawn;
+
+    private final HashMap<Integer, ItemStack> preDuelItems;
 
     private int kills;
     private int deaths;
     private int totemPops;
 
+    private int lastDeathTime;
     private int respawnTimer;
     private boolean awaitingRespawn;
     private int lives;
@@ -28,7 +36,13 @@ public class PlayerDuelState {
         this.player = player;
 
         this.preDuelGamemode = player.gameMode();
+
+        this.preDuelLevel = player.level();
         this.preDuelPosition = player.position();
+
+        this.duelLevel = preDuelLevel;
+        this.duelSpawn = preDuelPosition;
+
         this.preDuelItems = Kit.copyPlayerInventory(player);
 
         this.kills = 0;
@@ -114,7 +128,19 @@ public class PlayerDuelState {
         return preDuelPosition;
     }
 
-    public NonNullList<ItemStack> getPreDuelItems() {
+    public Vec3 getDuelSpawnPosition() {
+        return duelSpawn;
+    }
+
+    public ServerLevel getPreDuelLevel() {
+        return preDuelLevel;
+    }
+
+    public ServerLevel getDuelLevel() {
+        return duelLevel;
+    }
+
+    public HashMap<Integer, ItemStack> getPreDuelItems() {
         return preDuelItems;
     }
 }

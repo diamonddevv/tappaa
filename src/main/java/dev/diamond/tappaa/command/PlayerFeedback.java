@@ -31,6 +31,7 @@ import net.minecraft.sounds.SoundEvents;
  */
 public class PlayerFeedback {
 
+    public static final SimpleCommandExceptionType ERROR_FUCK_YOU = new SimpleCommandExceptionType(Component.literal("This command deliberately threw an error. It's probably getting reworked."));
     public static final SimpleCommandExceptionType ERROR_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are already in a group!"));
     public static final SimpleCommandExceptionType ERROR_NOT_IN_GROUP = new SimpleCommandExceptionType(Component.literal("You are not in a group!"));
     public static final SimpleCommandExceptionType ERROR_NOT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You are not in a duel!"));
@@ -54,6 +55,7 @@ public class PlayerFeedback {
     public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));
     public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE = new SimpleCommandExceptionType(Component.literal("You must specify at least one player!"));
     public static final SimpleCommandExceptionType ERROR_KIT_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That kit does not exist!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_OVERWRITE_KIT = new SimpleCommandExceptionType(Component.literal("This kit is non-overwriteable!"));
 
     /**
      * msg.tappaa.group.invited.source
