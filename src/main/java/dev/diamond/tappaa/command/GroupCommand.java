@@ -4,16 +4,21 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.diamond.tappaa.TappaaUtil;
+import dev.diamond.tappaa.duel.AvailableKitsSuggestionProvider;
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
+import dev.diamond.tappaa.group.QuickDuelGroup;
+import dev.diamond.tappaa.serial.SavedKits;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.UuidArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
@@ -102,7 +107,7 @@ public class GroupCommand {
             throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
         }
 
-        if (group.get().isQuickDuelGroup()) {
+        if (group.get() instanceof QuickDuelGroup) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_CANT_INVITE_NOW.create();
         }

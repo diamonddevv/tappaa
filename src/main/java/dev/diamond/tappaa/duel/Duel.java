@@ -228,7 +228,7 @@ public class Duel {
         this.pregameTimeTicks = PREGAME_TICKS;
 
         forEachMemberOfDuel(player -> {
-            player.setGameMode(GameType.SURVIVAL); // todo: check whether we should be in adventure or not; probably via config
+            player.setGameMode(GameType.SURVIVAL);
             player.removeAllEffects();
             resetHealthAndHunger(player);
             if (this.kit.getUsesStacks()) {

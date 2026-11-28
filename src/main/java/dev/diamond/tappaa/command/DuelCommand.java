@@ -1,13 +1,16 @@
 package dev.diamond.tappaa.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.diamond.tappaa.duel.AvailableKitsSuggestionProvider;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
+import dev.diamond.tappaa.duel.Kit;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupManager;
+import dev.diamond.tappaa.serial.SavedKits;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -30,66 +33,22 @@ public class DuelCommand {
                 literal("duel").then(
                         literal("request").then(
                                 argument("players", EntityArgument.players()).then(
-                                        argument("kit", IdentifierArgument.id())
-                                                .suggests(new AvailableKitsSuggestionProvider())
-                                                .executes(DuelCommand::duelDirectMultiple)
+                                        kitArgument().executes(DuelCommand::duelDirectMultiple)
                                 )
                         )
                 ).then(
-                        literal("group").executes(DuelCommand::duelGroup)
+                        literal("group").then(
+                                kitArgument().executes(DuelCommand::duelGroup)
+                        )
                 ).then(
                         literal("end").executes(DuelCommand::endDuel)
                 )
         );
     }
 
-    @Deprecated
-    private static int duelDirect(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer src = ctx.getSource().getPlayerOrException();
-
-        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
-        if (group.isPresent()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_ALREADY_IN_GROUP.create();
-        }
-
-        Optional<Duel> duel = DuelManager.INSTANCE.getDuel(src);
-        if (duel.isPresent()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_ALREADY_IN_DUEL.create();
-        }
-
-        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
-
-        Optional<Group> targetGroup = GroupManager.INSTANCE.getGroup(target);
-        if (targetGroup.isPresent()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_OTHER_IN_GROUP.create();
-        }
-
-        Optional<Duel> targetDuel = DuelManager.INSTANCE.getDuel(target);
-        if (targetDuel.isPresent()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_OTHER_IN_DUEL.create();
-        }
-
-        // set up duel
-        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
-        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(ctx.getSource().getServer(), src, kitId);
-
-        if (duelGroup == null) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
-        } else {
-
-            duelGroup.invite(target);
-            target.sendSystemMessage(PlayerFeedback.target_InvitedToGroupRequest(duelGroup, true));
-
-            PlayerFeedback.playYaySound(src);
-            src.sendSystemMessage(PlayerFeedback.source_SentQuickDuelRequestSingle(target));
-
-            return 1;
-        }
+    private static RequiredArgumentBuilder<CommandSourceStack, Identifier> kitArgument() {
+        return argument("kit", IdentifierArgument.id())
+                .suggests(new AvailableKitsSuggestionProvider());
     }
 
     private static int duelDirectMultiple(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -108,17 +67,11 @@ public class DuelCommand {
             throw PlayerFeedback.ERROR_ALREADY_IN_DUEL.create();
         }
 
-        // set up duel
-        Identifier kitId;
-        try {
-            kitId = IdentifierArgument.getId(ctx, "kit");
-        } catch (IllegalArgumentException iae) {
-            kitId = null;
-        }
+        // get kit
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
+        Optional<Kit> kit = SavedKits.getSavedKits(ctx.getSource().getServer()).getKitFromId(kitId);
 
-        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(ctx.getSource().getServer(), src, kitId);
-
-        if (duelGroup == null) {
+        if (kit.isEmpty()) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
@@ -129,6 +82,8 @@ public class DuelCommand {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE.create();
         }
+
+        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(src, kit.get());
 
         boolean onlyOne = targets.size() == 1;
 
@@ -197,7 +152,15 @@ public class DuelCommand {
             throw PlayerFeedback.ERROR_NOT_ENOUGH_PLAYERS.create();
         }
 
-        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), false);
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
+        Optional<Kit> kit = SavedKits.getSavedKits(ctx.getSource().getServer()).getKitFromId(kitId);
+
+        if (kit.isEmpty()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
+        }
+
+        Optional<Duel> duel = DuelManager.INSTANCE.createDuelFromGroup(group.get(), kit.get(), false);
 
         if (duel.isPresent()) { // this should always be true, really
             for (ServerPlayer member : duel.get().getPlayers()) {

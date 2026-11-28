@@ -220,7 +220,7 @@ public class TappaaGeneralCommand {
 
         Group duelGroup = GroupManager.INSTANCE.createGroup(src);
         duelGroup.addToGroup(target);
-        DuelManager.INSTANCE.createDuelFromGroup(duelGroup, true);
+        DuelManager.INSTANCE.createDuelFromGroup(duelGroup, Kit.defaultKit(), false);
 
         return 1;
     }

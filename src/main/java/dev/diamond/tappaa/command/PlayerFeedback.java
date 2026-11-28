@@ -4,6 +4,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.group.Group;
 import dev.diamond.tappaa.group.GroupRequest;
+import dev.diamond.tappaa.group.QuickDuelGroup;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -55,7 +56,8 @@ public class PlayerFeedback {
     public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));
     public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE = new SimpleCommandExceptionType(Component.literal("You must specify at least one player!"));
     public static final SimpleCommandExceptionType ERROR_KIT_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That kit does not exist!"));
-    public static final SimpleCommandExceptionType ERROR_CANT_OVERWRITE_KIT = new SimpleCommandExceptionType(Component.literal("This kit is non-overwriteable!"));
+    public static final SimpleCommandExceptionType ERROR_KIT_ALREADY_EXISTS = new SimpleCommandExceptionType(Component.literal("A kit already exists with that id!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_DELETE_KIT = new SimpleCommandExceptionType(Component.literal("That kit can't be deleted!"));
 
     /**
      * msg.tappaa.group.invited.source
@@ -201,7 +203,7 @@ public class PlayerFeedback {
         return Component.empty()
                 .append(Component.literal("Your invite to ").withStyle(ChatFormatting.YELLOW))
                 .append(TappaaUtil.playerTextComponent(group.getOwner(), ChatFormatting.GOLD))
-                .append(Component.literal("'s " + (group.isQuickDuelGroup() ? "duel" : "group") + " has expired.").withStyle(ChatFormatting.YELLOW));
+                .append(Component.literal("'s " + (group instanceof QuickDuelGroup ? "group" : "duel") + " has expired.").withStyle(ChatFormatting.YELLOW));
     }
 
 

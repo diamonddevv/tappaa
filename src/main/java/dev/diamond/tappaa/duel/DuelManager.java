@@ -41,10 +41,10 @@ public class DuelManager {
     public static final DuelManager INSTANCE = new DuelManager();
 
 
-    public Optional<Duel> createDuelFromGroup(Group group, boolean disbandGroupAfter) {
+    public Optional<Duel> createDuelFromGroup(Group group, Kit kit, boolean disbandGroupAfter) {
         if (!group.hasValidActiveDuel()) {
             UUID uuid = UUID.randomUUID();
-            Duel duel = new Duel(uuid, group.getServer(), group.getKit(), group.getMembers(), disbandGroupAfter ? d -> {
+            Duel duel = new Duel(uuid, group.getServer(), kit, group.getMembers(), disbandGroupAfter ? d -> {
                 GroupManager.INSTANCE.disbandGroup(group, true);
             } : d -> {});
             group.setDuelUuid(uuid);

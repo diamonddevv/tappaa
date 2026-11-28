@@ -28,8 +28,12 @@ public class Kit {
     //       then when they die, check what slot it is in now, back reference the old slot to fetch the item and
     //       put it in the new one
 
-    // todo: add option to teleport all players within a certain radius of player who started duel when the duel
+    // todo: add field to teleport all players within a certain radius of player who started duel when the duel
     //       begins
+
+    // todo: change kits so they are editable outwith a group
+
+    // todo: add gamemode field
 
     public static final int HELMET_SLOT = 39;
     public static final int CHESTPLATE_SLOT = 38;
@@ -47,7 +51,7 @@ public class Kit {
             Codec.INT.fieldOf("lives")           .forGetter(Kit::getLives),
             Codec.INT.fieldOf("respawn_ticks")   .forGetter(Kit::getRespawnTicks),
             Codec.BOOL.fieldOf("uses_stacks")    .forGetter(Kit::getUsesStacks),
-            Codec.BOOL.fieldOf("overwriteable")   .forGetter(Kit::overwriteable)
+            Codec.BOOL.fieldOf("deletable")      .forGetter(Kit::deletable)
     ).apply(instance, Kit::decodec));
 
     public static final int DEFAULT_KIT_LIVES = 3;
@@ -56,14 +60,13 @@ public class Kit {
     private static final String IS_OF_KIT_CUSTOM_DATA_TAG = Tappaa.id("is_of_kit").toString();
 
     private static final Identifier DEFAULT_KIT_ID = Tappaa.id("default");
-    private static final Identifier DEFAULT_EMPTY_KIT_ID = Tappaa.id("empty");
     private static final Identifier DEFAULT_NO_STACK_KIT_ID = Tappaa.id("no_kit"); // ironically, no kit is a kit
 
     public HashMap<Integer, ItemStack> items;
     private int lives;
     private int respawnTicks;
     private boolean usesStacks;
-    private boolean overwriteable;
+    private boolean deletable;
 
     public Kit() {
         this.items = new HashMap<>();
@@ -71,7 +74,7 @@ public class Kit {
         this.lives = DEFAULT_KIT_LIVES;
         this.respawnTicks = DEFAULT_KIT_RESPAWN_TICKS;
         this.usesStacks = true;
-        this.overwriteable = false;
+        this.deletable = false;
     }
 
     private static Kit decodec(List<SavedKits.IndexedItemStack> stacks, int lives, int respawnTicks, boolean usesStacks, boolean overwriteable) {
@@ -79,7 +82,7 @@ public class Kit {
         kit.lives = lives;
         kit.respawnTicks = respawnTicks;
         kit.usesStacks = usesStacks;
-        kit.overwriteable = overwriteable;
+        kit.deletable = overwriteable;
         return kit;
     }
 
@@ -97,7 +100,6 @@ public class Kit {
         SavedKits kits = SavedKits.getSavedKits(minecraftServer);
 
         kits.saveKit(DEFAULT_KIT_ID, defaultKit(), false);
-        kits.saveKit(DEFAULT_EMPTY_KIT_ID, emptyKit(), false);
         kits.saveKit(DEFAULT_NO_STACK_KIT_ID, defaultNoStackKit(), false);
     }
 
@@ -149,8 +151,8 @@ public class Kit {
         return this;
     }
 
-    public Kit withOverwritable(boolean overwriteable) {
-        this.overwriteable = overwriteable;
+    public Kit withDeletable(boolean deletable) {
+        this.deletable = deletable;
         return this;
     }
 
@@ -238,8 +240,8 @@ public class Kit {
         return usesStacks;
     }
 
-    public boolean overwriteable() {
-        return overwriteable;
+    public boolean deletable() {
+        return deletable;
     }
 
     public void copyToPlayer(ServerPlayer player) {
@@ -271,7 +273,7 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(true)
-                .withOverwritable(false)
+                .withDeletable(false)
 
                 .withHelmet(new ItemStack(Items.IRON_HELMET))
                 .withChestplate(new ItemStack(Items.IRON_CHESTPLATE))
@@ -294,7 +296,7 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(true)
-                .withOverwritable(false);
+                .withDeletable(false);
     }
 
     public static Kit defaultNoStackKit() {
@@ -302,7 +304,7 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(false)
-                .withOverwritable(false);
+                .withDeletable(false);
     }
 
 }

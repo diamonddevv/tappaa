@@ -3,8 +3,6 @@ package dev.diamond.tappaa.group;
 import dev.diamond.tappaa.Tappaa;
 import dev.diamond.tappaa.duel.Duel;
 import dev.diamond.tappaa.duel.DuelManager;
-import dev.diamond.tappaa.duel.Kit;
-import dev.diamond.tappaa.duel.KitUi;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.core.UUIDUtil;
@@ -27,28 +25,22 @@ public class Group {
 
     private final UUID uuid;
     private final MinecraftServer server;
-    private Kit kit;
     private final boolean invitesExpire;
     private UUID duelUuid;
     private final UUID ownerUuid;
-    private final Collection<UUID> players;
+    private final Collection<UUID> memberUuids;
     private final ConcurrentHashMap<UUID, GroupRequest> requests;
-    private final boolean quickDuelGroup;
 
-    public Group(UUID uuid, ServerPlayer owner, boolean quickDuelGroup) {
+    public Group(UUID uuid, ServerPlayer owner) {
         this.uuid = uuid;
         this.ownerUuid = owner.getUUID();
 
         this.server = owner.level().getServer();
 
-        this.players = new ArrayList<>();
+        this.memberUuids = new ArrayList<>();
         this.requests = new ConcurrentHashMap<>(); // since we need to remove invites on the fly, this needs to be concurrent as to not throw ConcurrentModificationException
         this.duelUuid = null;
         this.invitesExpire = true;
-
-        this.kit = Kit.defaultKit();
-
-        this.quickDuelGroup = quickDuelGroup;
 
         addToGroup(owner);
     }
@@ -65,28 +57,24 @@ public class Group {
         return server.getPlayerList().getPlayer(ownerUuid);
     }
 
-    public Kit getKit() {
-        return kit;
-    }
-
-    public boolean isQuickDuelGroup() {
-        return quickDuelGroup;
-    }
-
     public boolean invitesExpire() {
         return invitesExpire;
     }
 
+    public Collection<UUID> getMemberUuids() {
+        return memberUuids;
+    }
+
+    public ConcurrentHashMap<UUID, GroupRequest> getRequests() {
+        return requests;
+    }
+
     public Collection<ServerPlayer> getMembers() {
-        return players.stream().map(server.getPlayerList()::getPlayer).toList();
+        return memberUuids.stream().map(server.getPlayerList()::getPlayer).toList();
     }
 
     public Collection<ServerPlayer> getRequestedMembers() {
         return requests.values().stream().map(GroupRequest::getTargetPlayer).toList();
-    }
-
-    public void setKit(Kit kit) {
-        this.kit = kit;
     }
 
     public void setDuelUuid(UUID uuid) {
@@ -107,13 +95,13 @@ public class Group {
             return;
         }
         player.setAttached(GROUP_ID_ATTACHMENT, this.uuid);
-        this.players.add(player.getUUID());
+        this.memberUuids.add(player.getUUID());
     }
 
     public void removeFromGroup(ServerPlayer player) {
         if (player.hasAttached(GROUP_ID_ATTACHMENT) && player.getAttached(GROUP_ID_ATTACHMENT) == uuid) {
             player.removeAttached(GROUP_ID_ATTACHMENT);
-            this.players.remove(player.getUUID());
+            this.memberUuids.remove(player.getUUID());
         }
     }
 
@@ -123,11 +111,11 @@ public class Group {
                 player.removeAttached(GROUP_ID_ATTACHMENT);
             }
         }
-        players.clear();
+        memberUuids.clear();
     }
 
     public boolean hasMember(ServerPlayer player) {
-        return players.contains(player.getUUID());
+        return memberUuids.contains(player.getUUID());
     }
 
     public void broadcastMessage(Component message, boolean includeOwner) {
@@ -151,15 +139,7 @@ public class Group {
     }
 
     public void onRespondInvite() {
-        if (isQuickDuelGroup()) {
-            if (requests.isEmpty()) {
-                if (players.size() > 1) {
-                    DuelManager.INSTANCE.createDuelFromGroup(this, true);
-                } else {
-                    GroupManager.INSTANCE.disbandGroup(this, false);
-                }
-            }
-        }
+
     }
 
     public void tick() {
