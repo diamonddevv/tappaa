@@ -35,6 +35,8 @@ public class Kit {
 
     // todo: potentially readd ui to customise kit items, using a hacked-up version of creative mode and the players inventory
 
+    // todo: add name and author fields for display
+
     public static final int HELMET_SLOT = 39;
     public static final int CHESTPLATE_SLOT = 38;
     public static final int LEGGINGS_SLOT = 37;
@@ -220,7 +222,7 @@ public class Kit {
 
     private static ItemStack withModifiedDuelNbt(ItemStack stack) {
         ItemStack newStack = stack.copy();
-        CustomData.update(DataComponents.CUSTOM_DATA, newStack.copy(), nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
+        CustomData.update(DataComponents.CUSTOM_DATA, newStack, nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
         return newStack;
     }
 

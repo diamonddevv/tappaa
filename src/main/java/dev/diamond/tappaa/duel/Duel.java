@@ -34,6 +34,8 @@ import java.util.function.Predicate;
 
 public class Duel {
 
+    // todo: suppress ALL advancements to players in duels
+
     public static final AttachmentType<UUID> DUEL_ID_ATTACHMENT = AttachmentRegistry.create(
             Tappaa.id("duel_id"),
             builder -> builder
@@ -366,8 +368,8 @@ public class Duel {
                 level,
                 pos.x, pos.y, pos.z,
                 Relative.union(Relative.DELTA, Relative.ROTATION),
-                player.yRotO,
-                player.xRotO,
+                player.getYRot(),
+                player.getXRot(),
                 false
         );
     }
