@@ -58,8 +58,6 @@ public class TappaaGeneralCommand {
                                 literal("forceduel").then(
                                         argument("player", EntityArgument.player()).executes(TappaaGeneralCommand::devForceDuelDirect)
                                 )
-                        ).then(
-                                literal("kitui").executes(TappaaGeneralCommand::devOpenKitUi)
                         )
                 )
         );
@@ -274,35 +272,6 @@ public class TappaaGeneralCommand {
                 .append(Component.literal("]").withStyle(ChatFormatting.GREEN))
         );
         return 1;
-    }
-
-    private static int devOpenKitUi(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer src = ctx.getSource().getPlayerOrException();
-
-        if (!(src.getPermissionContext().permissionLevel().isEqualOrHigherThan(PermissionLevel.GAMEMASTERS) || src.gameMode() == GameType.CREATIVE)) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_NO_PERMISSION.create();
-        }
-
-        Optional<Group> group = GroupManager.INSTANCE.getGroup(src);
-        if (group.isEmpty()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_NOT_IN_GROUP.create();
-        }
-
-        if (group.get().getOwner() != src) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_NOT_GROUP_OWNER.create();
-        }
-
-        if (group.get().hasValidActiveDuel()) {
-            PlayerFeedback.playBadSound(src);
-            throw PlayerFeedback.ERROR_CANT_EDIT_KIT_IN_DUEL.create();
-        }
-
-        throw PlayerFeedback.ERROR_FUCK_YOU.create();
-
-        //return 1;
     }
 
 }

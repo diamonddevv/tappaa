@@ -31,9 +31,9 @@ public class Kit {
     // todo: add field to teleport all players within a certain radius of player who started duel when the duel
     //       begins
 
-    // todo: change kits so they are editable outwith a group
-
     // todo: add gamemode field
+
+    // todo: potentially readd ui to customise kit items, using a hacked-up version of creative mode and the players inventory
 
     public static final int HELMET_SLOT = 39;
     public static final int CHESTPLATE_SLOT = 38;
