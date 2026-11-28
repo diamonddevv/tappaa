@@ -25,7 +25,7 @@ public class Tappaa implements ModInitializer {
 		GroupManager.registerGroupEvents();
 		DuelManager.registerDuelingEvents();
 
-        LOGGER.info("{} (done loading)", pickThingToSayOnLoad(System.nanoTime()));
+        LOGGER.info("{} (done loading)", pickThingToSayOnLoad(System.currentTimeMillis()));
 	}
 
 	public static Identifier id(String path) {

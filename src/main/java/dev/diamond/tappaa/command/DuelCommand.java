@@ -33,12 +33,12 @@ public class DuelCommand {
                 literal("duel").then(
                         literal("request").then(
                                 argument("players", EntityArgument.players()).then(
-                                        kitArgument().executes(DuelCommand::duelDirectMultiple)
+                                        KitCommand.kitArgument().executes(DuelCommand::duelDirectMultiple)
                                 )
                         )
                 ).then(
                         literal("group").then(
-                                kitArgument().executes(DuelCommand::duelGroup)
+                                KitCommand.kitArgument().executes(DuelCommand::duelGroup)
                         )
                 ).then(
                         literal("end").executes(DuelCommand::endDuel)
@@ -46,10 +46,7 @@ public class DuelCommand {
         );
     }
 
-    private static RequiredArgumentBuilder<CommandSourceStack, Identifier> kitArgument() {
-        return argument("kit", IdentifierArgument.id())
-                .suggests(new AvailableKitsSuggestionProvider());
-    }
+
 
     private static int duelDirectMultiple(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 
@@ -83,9 +80,15 @@ public class DuelCommand {
             throw PlayerFeedback.ERROR_NOT_ENOUGH_TARGETS_FOR_INVITE.create();
         }
 
-        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(src, kit.get());
 
         boolean onlyOne = targets.size() == 1;
+
+        if (onlyOne && targets.getFirst() == src) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_DUEL_SELF.create();
+        }
+
+        Group duelGroup = GroupManager.INSTANCE.createQuickDuelGroup(src, kit.get());
 
         int failures = 0;
         for (ServerPlayer target : targets) {

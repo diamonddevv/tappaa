@@ -43,14 +43,14 @@ public class PlayerFeedback {
     public static final SimpleCommandExceptionType ERROR_GROUP_DOESNT_EXIST = new SimpleCommandExceptionType(Component.literal("That group does not exist!"));
     public static final SimpleCommandExceptionType ERROR_NOT_INVITED = new SimpleCommandExceptionType(Component.literal("You aren't invited to this group!"));
     public static final SimpleCommandExceptionType ERROR_CANT_INVITE_SELF = new SimpleCommandExceptionType(Component.literal("You can't invite yourself to a group!"));
+    public static final SimpleCommandExceptionType ERROR_CANT_DUEL_SELF = new SimpleCommandExceptionType(Component.literal("You can't duel yourself!"));
     public static final SimpleCommandExceptionType ERROR_PLAYER_ALREADY_IN_GROUP = new SimpleCommandExceptionType(Component.literal("This player is already in your group!"));
     public static final SimpleCommandExceptionType ERROR_CANT_KICK_NON_MEMBER = new SimpleCommandExceptionType(Component.literal("You can't kick someone who isn't in your party!"));
     public static final SimpleCommandExceptionType ERROR_CANT_KICK_SELF = new SimpleCommandExceptionType(Component.literal("You can't kick yourself!"));
     public static final SimpleCommandExceptionType ERROR_ALREADY_IN_DUEL = new SimpleCommandExceptionType(Component.literal("Your group is already in a duel!"));
     public static final SimpleCommandExceptionType ERROR_OTHER_IN_GROUP = new SimpleCommandExceptionType(Component.literal("That player is already in a group!"));
     public static final SimpleCommandExceptionType ERROR_OTHER_IN_DUEL = new SimpleCommandExceptionType(Component.literal("That player is busy in a duel!"));
-    public static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_IN_DUEL = new SimpleCommandExceptionType(Component.literal("You can't edit the group kit when you're in the middle of a duel!"));
-    public static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT_NO_PERMISSION = new SimpleCommandExceptionType(Component.literal("You can't edit the kit using the UI, you lack the permission."));
+    public static final SimpleCommandExceptionType ERROR_CANT_EDIT_KIT = new SimpleCommandExceptionType(Component.literal("You can't edit this kit!"));
     public static final SimpleCommandExceptionType ERROR_CANT_INVITE_NOW = new SimpleCommandExceptionType(Component.literal("You can't invite players to your group right now!"));
     public static final SimpleCommandExceptionType ERROR_BAD_SLOT = new SimpleCommandExceptionType(Component.literal("You can't edit into that slot!"));
     public static final SimpleCommandExceptionType ERROR_NOT_ENOUGH_PLAYERS = new SimpleCommandExceptionType(Component.literal("There aren't enough players in the group!"));

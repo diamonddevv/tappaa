@@ -51,7 +51,7 @@ public class Kit {
             Codec.INT.fieldOf("lives")           .forGetter(Kit::getLives),
             Codec.INT.fieldOf("respawn_ticks")   .forGetter(Kit::getRespawnTicks),
             Codec.BOOL.fieldOf("uses_stacks")    .forGetter(Kit::getUsesStacks),
-            Codec.BOOL.fieldOf("deletable")      .forGetter(Kit::deletable)
+            Codec.BOOL.fieldOf("mutable")      .forGetter(Kit::mutable)
     ).apply(instance, Kit::decodec));
 
     public static final int DEFAULT_KIT_LIVES = 3;
@@ -66,7 +66,7 @@ public class Kit {
     private int lives;
     private int respawnTicks;
     private boolean usesStacks;
-    private boolean deletable;
+    private boolean mutable;
 
     public Kit() {
         this.items = new HashMap<>();
@@ -74,7 +74,7 @@ public class Kit {
         this.lives = DEFAULT_KIT_LIVES;
         this.respawnTicks = DEFAULT_KIT_RESPAWN_TICKS;
         this.usesStacks = true;
-        this.deletable = false;
+        this.mutable = false;
     }
 
     private static Kit decodec(List<SavedKits.IndexedItemStack> stacks, int lives, int respawnTicks, boolean usesStacks, boolean overwriteable) {
@@ -82,7 +82,7 @@ public class Kit {
         kit.lives = lives;
         kit.respawnTicks = respawnTicks;
         kit.usesStacks = usesStacks;
-        kit.deletable = overwriteable;
+        kit.mutable = overwriteable;
         return kit;
     }
 
@@ -151,8 +151,8 @@ public class Kit {
         return this;
     }
 
-    public Kit withDeletable(boolean deletable) {
-        this.deletable = deletable;
+    public Kit withMutable(boolean mutable) {
+        this.mutable = mutable;
         return this;
     }
 
@@ -208,6 +208,10 @@ public class Kit {
         return this.items.getOrDefault(slot, ItemStack.EMPTY);
     }
 
+    public void clearItem(int slot) {
+        this.items.remove(slot);
+    }
+
     public @NonNull ItemStack getItemForGiving(int slot) {
         ItemStack stack = this.getItem(slot).copy();
         CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> nbt.putBoolean(IS_OF_KIT_CUSTOM_DATA_TAG, true));
@@ -240,8 +244,8 @@ public class Kit {
         return usesStacks;
     }
 
-    public boolean deletable() {
-        return deletable;
+    public boolean mutable() {
+        return mutable;
     }
 
     public void copyToPlayer(ServerPlayer player) {
@@ -265,7 +269,7 @@ public class Kit {
     }
 
     public static boolean isSlotOkay(int slot) {
-        return slot > 0 && slot <= OFFHAND_SLOT;
+        return slot >= 0 && slot <= OFFHAND_SLOT;
     }
 
     public static Kit defaultKit() {
@@ -273,7 +277,7 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(true)
-                .withDeletable(false)
+                .withMutable(false)
 
                 .withHelmet(new ItemStack(Items.IRON_HELMET))
                 .withChestplate(new ItemStack(Items.IRON_CHESTPLATE))
@@ -296,7 +300,7 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(true)
-                .withDeletable(false);
+                .withMutable(false);
     }
 
     public static Kit defaultNoStackKit() {
@@ -304,7 +308,6 @@ public class Kit {
                 .withLives(3)
                 .withRespawnTicks(5 * 20)
                 .withUsesStacks(false)
-                .withDeletable(false);
+                .withMutable(false);
     }
-
 }

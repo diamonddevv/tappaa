@@ -3,13 +3,12 @@ package dev.diamond.tappaa.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.diamond.tappaa.TappaaUtil;
 import dev.diamond.tappaa.duel.AvailableKitsSuggestionProvider;
 import dev.diamond.tappaa.duel.Kit;
-import dev.diamond.tappaa.group.Group;
-import dev.diamond.tappaa.group.GroupManager;
 import dev.diamond.tappaa.serial.SavedKits;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
@@ -35,14 +34,14 @@ public class KitCommand {
         dispatcher.register(
                 literal("kit").then(
                         literal("frominventory").then(
-                                argument("id", IdentifierArgument.id()).then(
+                                KitCommand.kitArgument().then(
                                         argument("player", EntityArgument.player()).executes(KitCommand::kitFromPlayer)
                                 )
                         )
                 ).then(
                         literal("fromitem").then(
-                                argument("id", IdentifierArgument.id()).then(
-                                        argument("slot", SlotArgument.slot()).then(
+                                KitCommand.kitArgument().then(
+                                        argument("slot", SlotArgument.slot()).executes(KitCommand::kitClearSlot).then(
                                                 argument("item", ItemArgument.item(ctx)).executes(KitCommand::kitSetItem).then(
                                                         argument("count", IntegerArgumentType.integer(0)).executes(KitCommand::kitSetItem)
                                                 )
@@ -55,13 +54,12 @@ public class KitCommand {
                         )
                 ).then(
                         literal("delete").then(
-                                argument("id", IdentifierArgument.id())
-                                        .suggests(new AvailableKitsSuggestionProvider())
+                                KitCommand.kitArgument()
                                         .executes(KitCommand::kitDelete)
                         )
                 ).then(
                         literal("fromheld").then(
-                                argument("id", IdentifierArgument.id()).then(
+                                KitCommand.kitArgument().then(
                                         argument("slot", SlotArgument.slot()).then(
                                                 argument("from", EntityArgument.player()).executes(KitCommand::kitSetItemHeld)
                                         )
@@ -69,7 +67,7 @@ public class KitCommand {
                         )
                 ).then(
                         literal("option").then(
-                                argument("id", IdentifierArgument.id()).then(
+                                KitCommand.kitArgument().then(
                                         literal("lives").then(
                                                 argument("lives", IntegerArgumentType.integer(1)).executes(KitCommand::modifyLives)
                                         )
@@ -87,12 +85,15 @@ public class KitCommand {
         );
     }
 
-
+    public static RequiredArgumentBuilder<CommandSourceStack, Identifier> kitArgument() {
+        return argument("kit", IdentifierArgument.id())
+                .suggests(new AvailableKitsSuggestionProvider());
+    }
 
     private static int kitFromPlayer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
@@ -101,8 +102,14 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
 
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
+        }
+
         ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
         kit.get().setStacks(Kit.copyPlayerInventory(target));
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -119,13 +126,18 @@ public class KitCommand {
     private static int kitSetItem(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
         if (kit.isEmpty()) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
+        }
+
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
         }
 
         int slot = SlotArgument.getSlot(ctx, "slot");
@@ -147,6 +159,7 @@ public class KitCommand {
         }
 
         kit.get().setItem(slot, stack);
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -160,16 +173,59 @@ public class KitCommand {
         return 1;
     }
 
-    private static int kitSetItemHeld(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int kitClearSlot(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
         if (kit.isEmpty()) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
+        }
+
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
+        }
+
+        int slot = SlotArgument.getSlot(ctx, "slot");
+
+
+        if (!Kit.isSlotOkay(slot)) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_BAD_SLOT.create();
+        }
+
+        kit.get().clearItem(slot);
+        kits.saveKit(kitId, kit.get(), true);
+
+        PlayerFeedback.playYaySound(src);
+        src.sendSystemMessage(Component.empty()
+                .append(Component.literal("Cleared slot in kit [").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(kitId.toString()).withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("].").withStyle(ChatFormatting.GREEN))
+        );
+
+        return 1;
+    }
+
+    private static int kitSetItemHeld(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer src = ctx.getSource().getPlayerOrException();
+
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
+        SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
+        Optional<Kit> kit = kits.getKitFromId(kitId);
+
+        if (kit.isEmpty()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
+        }
+
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
         }
 
         int slot = SlotArgument.getSlot(ctx, "slot");
@@ -183,6 +239,7 @@ public class KitCommand {
         }
 
         kit.get().setItem(slot, stack);
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -208,6 +265,7 @@ public class KitCommand {
         }
 
         Kit template = Kit.emptyKit();
+        template.withMutable(true);
         kits.saveKit(id, template, false);
 
         PlayerFeedback.playYaySound(src);
@@ -223,7 +281,7 @@ public class KitCommand {
     private static int kitDelete(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
@@ -232,7 +290,7 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
 
-        if (!kit.get().deletable()) {
+        if (!kit.get().mutable()) {
             PlayerFeedback.playBadSound(src);
             throw PlayerFeedback.ERROR_CANT_DELETE_KIT.create();
         }
@@ -263,7 +321,7 @@ public class KitCommand {
     private static int modifyLives(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
@@ -272,8 +330,15 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
 
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
+        }
+
         int i = IntegerArgumentType.getInteger(ctx, "lives");
         kit.get().withLives(i);
+
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -290,7 +355,7 @@ public class KitCommand {
     private static int modifyRespawnTicks(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
@@ -299,8 +364,14 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
 
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
+        }
+
         int i = IntegerArgumentType.getInteger(ctx, "respawnTicks");
         kit.get().withRespawnTicks(i);
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()
@@ -320,7 +391,7 @@ public class KitCommand {
     private static int modifyOwnItemsFlag(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer src = ctx.getSource().getPlayerOrException();
 
-        Identifier kitId = IdentifierArgument.getId(ctx, "id");
+        Identifier kitId = IdentifierArgument.getId(ctx, "kit");
         SavedKits kits = SavedKits.getSavedKits(ctx.getSource().getServer());
         Optional<Kit> kit = kits.getKitFromId(kitId);
 
@@ -329,8 +400,14 @@ public class KitCommand {
             throw PlayerFeedback.ERROR_KIT_DOESNT_EXIST.create();
         }
 
+        if (!kit.get().mutable()) {
+            PlayerFeedback.playBadSound(src);
+            throw PlayerFeedback.ERROR_CANT_EDIT_KIT.create();
+        }
+
         boolean bl = BoolArgumentType.getBool(ctx, "useOwnItems");
         kit.get().withUsesStacks(bl);
+        kits.saveKit(kitId, kit.get(), true);
 
         PlayerFeedback.playYaySound(src);
         src.sendSystemMessage(Component.empty()

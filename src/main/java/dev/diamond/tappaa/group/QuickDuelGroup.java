@@ -2,6 +2,7 @@ package dev.diamond.tappaa.group;
 
 import dev.diamond.tappaa.duel.DuelManager;
 import dev.diamond.tappaa.duel.Kit;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
